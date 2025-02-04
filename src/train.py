@@ -3,7 +3,7 @@ import matplotlib.image as mpimg
 import os
 import json
 
-import convolution_neuron as cn
+import src.convolution_neuron as cn
 
 def load_data(path: str, grayscale: bool = True):
     images = []
