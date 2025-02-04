@@ -2,67 +2,82 @@ import numpy as np
 import matplotlib.image as mpimg
 import os
 import json
+import algorithms
 
-import src.convolution_neuron as cn
+import convolution_neuron as cn
 
 def load_data(path: str, grayscale: bool = True):
     images = []
 
+    
+
     for filename in os.listdir(path):
         if filename.lower().endswith(('.jpg', '.png', '.jpeg')):
             image = mpimg.imread(os.path.join(path, filename))
+
             if grayscale and len(image.shape) == 3:
                 image = np.dot(image[...,:3], [0.299, 0.587, 0.114])
-          
+
+            height, width = image.shape[:2]
+
+            if height != width:
+                algorithms.add_padding_to_image(image)
+            algorithms.resize_image(image)
+
             images.append(image)
 
     return np.array(images)
 
+
 def save_kernels(nodes: np.ndarray):
     kernels = [ node.kernel.tolist() for node in nodes ]
-    with open('kernels.json', "w") as f:
+    with open('src/kernels.json', "w") as f:
         json.dump(kernels, f)
 
+
 def load_kernels() -> np.ndarray:
-    with open('kernels.json', "r") as f:
+    with open('src/kernels.json', "r") as f:
         return np.array(json.load(f))
-    
-def leaky_relu(input: np.array, alpha: float = 0.1) -> np.array:
-    return np.where(input > 0, input, alpha * input)
 
-def max_pooling(input: np.array, size: int = 2, stride: int = 2) -> np.array:
-
-    output_rows: int = (len(input) - size) // stride + 1
-    output_cols: int = (len(input[0]) - size) // stride + 1
-
-    output = np.zeros((output_rows, output_cols))
-
-    for x in range(output_rows):
-        for y in range(output_cols):
-            window = input[x * stride:x * stride + size, y * stride:y * stride + size]
-            output[x, y] = np.max(window)
-        
-    return output
-    
 convolution_nodes = np.array([])
 
 if __name__ == '__main__':
-    # images = load_data('training_data', grayscale=False)
+    
+    """
+    Fetching training data, and then scaling them all down to a set size. Adds padding if needed.
+    """
+    image_height, image_width = 224
+    images = load_data('training_data', grayscale=True, image_height = image_height, image_width = image_width)
 
-    if os.path.exists('kernels.json'):
+
+    num_convolution_nodes = 2
+
+
+    """
+    Initializing random kernels if no kernels are found, or accessing kernels that are trained/in progress of training
+    """
+    if os.path.exists('src/kernels.json'):
         kernels = load_kernels()
         convolution_nodes = np.array([cn.ConvolutionNeuron(kernels[i]) for i in range(len(kernels))])
     else:
-        file = open('kernels.json', 'w')
+        file = open('src/kernels.json', 'w')
         file.close()
 
-        num_convolution_nodes = 2
 
         for i in range(num_convolution_nodes):
             kernel = np.random.randn(3, 3)
-            convolution_nodes = np.append(convolution_nodes, cn.ConvolutionNeuron(kernel))
+            convolution_nodes: np.ndarray[cn.ConvolutionNeuron] = np.append(convolution_nodes, cn.ConvolutionNeuron(kernel))
 
         save_kernels(convolution_nodes)
 
-    current_kernels = [ node.kernel.tolist() for node in convolution_nodes ]
-    print(current_kernels)
+
+    """
+    Training
+    """
+    for image in images:
+        for node in convolution_nodes:
+            node.convolve2d(image, nonlinear=True, pooling=True)
+            # code that connects the convolved activation matricies to the fully connected layer
+            # determine cost using a set function -> cost returns a list matricies of adjustments for each node before the output node
+            # backpropagate using recursion, calculating the adjustments neede for the previous connected nodes
+            # repeat
