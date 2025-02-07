@@ -27,3 +27,7 @@ class ConvolutionNeuron:
 
         if pooling:
             activation = algorithms.max_pooling(activation)
+
+
+    def correction(target: np.ndarray):
+        pass
