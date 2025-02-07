@@ -1,4 +1,5 @@
 import numpy as np
+import cv2 as cv
 
 
 def leaky_relu(input: np.ndarray, alpha: float = 0.1) -> np.array:
@@ -19,19 +20,13 @@ def max_pooling(input: np.ndarray, size: int = 2, stride: int = 2) -> np.array:
         
     return output
 
-def add_padding_to_image(input: np.ndarray):
-    height, width = input.shape[:2]
+def resize_image(input: np.ndarray) -> np.ndarray:
+    current_width = np.size(input, 0)
+    current_height = np.size(input, 1)
 
-    size = np.max(height, width)
-    padded_image = np.zeros((size, size), dtype=float)
+    if current_width > current_height:
+        return cv.resize(input, (300, int(300 * current_height / current_width)))
+    else:
+        return cv.resize(input, (int(300 * current_width / current_height), 300))
 
-    x_offset = (size - height) // 2
-    y_offset = (size - width) // 2
-
-    padded_image[x_offset:x_offset+height, y_offset:y_offset+width] = image
-    image = padded_image
-
-
-def resize_image(input: np.ndarray, target_height: int, target_width: int):
-    return
     
