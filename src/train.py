@@ -28,21 +28,45 @@ def load_images(path: str, grayscale: bool = True) -> np.ndarray:
     return np.array(images)
 
 if __name__ == '__main__':
-    # Fetching training data, and then scaling them all down to a set size. Adds padding if needed.
+    # Fetching training data
     images = load_images('training_data', grayscale=True)
 
     model.load_model()
-
+    debug = True
+    
     # Training
-    for image in images:
-        
-        for cn in model.model["cn_layer_one"]:
+    for index, image in enumerate(images):
+        # First Convolution Layer (outputs a 3D tensor)
+        image_width = np.size(image, 0) 
+        image_height = np.size(image, 1)
+        sample_cn_one = model.model["cn_layer_one"][0]
+        layer_one_output = np.zeros((len(model.model["cn_layer_one"]), 
+                                    ((image_width - sample_cn_one.kernel.shape[0]) // sample_cn_one.stride),
+                                    ((image_height - sample_cn_one.kernel.shape[1]) // sample_cn_one.stride)
+                                    ), dtype=float)
+        for i, cn in enumerate(model.model["cn_layer_one"]):
             cn.convolve2d(image, nonlinear=True, pooling=True)
-            # code that connects the convolved activation matricies to the fully connected layer
-            # determine cost using a set function -> cost returns a list matricies of adjustments for each node before the output node
-            # backpropagate using recursion, calculating the adjustments neede for the previous connected nodes
-            # repeat
+            layer_one_output[i] = cn.activation
 
-            # ** the model should output: the x, y, width, height of where the face is located.
-            # later, the box made will scale back up to the original un-scaled image and the
-            # new box will be drawn over the original image.
+        # Second Convolution Layer (ouputs a 3D tensor)
+        sample_cn_two = model.model["cn_layer_two"][0]
+        layer_two_output = np.zeros((len(model.model["cn_layer_two"]),
+                                    ((layer_one_output.shape[1] - sample_cn_two.kernel.shape[0]) // sample_cn_two.stride), 
+                                    ((layer_one_output.shape[2] - sample_cn_two.kernel.shape[1]) // sample_cn_two.stride),                                    
+                                    ), dtype=float)
+        for i, cn in enumerate(model.model["cn_layer_two"]):
+            cn.convolve3d(layer_one_output, nonlinear=True, pooling=True)
+            layer_two_output[i] = cn.activation
+
+        # Flattening output for fully connected layer.
+        flattened_output = layer_two_output.flatten()
+
+
+        # code that connects the convolved activation matricies to the fully connected layer
+        # determine cost using a set function -> cost returns a list matricies of adjustments for each node before the output node
+        # backpropagate using recursion, calculating the adjustments neede for the previous connected nodes
+        # repeat
+
+        # ** the model should output: the x, y, width, height of where the face is located.
+        # later, the box made will scale back up to the original un-scaled image and the
+        # new box will be drawn over the original image.

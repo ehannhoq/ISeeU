@@ -28,5 +28,7 @@ def resize_image(input: np.ndarray) -> np.ndarray:
         return cv.resize(input, (300, int(300 * current_height / current_width)))
     else:
         return cv.resize(input, (int(300 * current_width / current_height), 300))
-
     
+def debug_message(message: str, print: bool) -> None:
+    if print:
+        print(message)

@@ -53,7 +53,7 @@ def load_model():
         load_data()
     else:
         layer_one_cn = [ cn.ConvolutionNeuron(np.random.randn(3, 3)) for _ in range(num_layer_one_cn) ]
-        layer_two_cn = [ cn.ConvolutionNeuron(np.random.randn(3, 3)) for _ in range(num_layer_two_cn) ]
+        layer_two_cn = [ cn.ConvolutionNeuron(np.random.randn(num_layer_one_cn, 3, 3)) for _ in range(num_layer_two_cn) ]
         layer_one_fc = [ neuron.Neuron(np.random.randn(num_layer_one_fc), np.random.randn()) for _ in range(num_layer_one_fc) ]
         layer_two_fc = [ neuron.Neuron(np.random.randn(num_layer_two_fc), np.random.randn()) for _ in range(num_layer_two_fc) ]
         output_neurons = [ neuron.Neuron(np.random.randn(num_layer_two_fc), np.random.randn()) for _ in range(num_output_neurons) ]
