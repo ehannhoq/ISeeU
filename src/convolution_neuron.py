@@ -23,8 +23,8 @@ class ConvolutionNeuron:
         output_height = (input_height - kernel_height) // self.stride + 1
         self.activation = np.zeros((output_height, output_width), dtype=float)
 
-        for x in range(0, output_width, self.stride):
-            for y in range(0, output_height, self.stride):
+        for y in range(0, output_height, self.stride):
+            for x in range(0, output_width, self.stride):
                 window = np.array( input[y:y + len(self.kernel), x:x + len(self.kernel[0])] )
                 self.activation[y, x] = np.sum(window * self.kernel)
 
@@ -49,8 +49,8 @@ class ConvolutionNeuron:
         self.activation = np.zeros((output_height, output_width), dtype=float)
 
 
-        for x in range(0, output_width, self.stride):
-            for y in range(0, output_height, self.stride):
+        for y in range(0, output_height, self.stride):
+            for x in range(0, output_width, self.stride):
                 cube = np.array( input[:, y:y + kernel_height, x:x + kernel_width] )
                 self.activation[y, x] = np.sum(cube * self.kernel)
 

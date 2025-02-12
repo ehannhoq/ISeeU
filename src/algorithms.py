@@ -16,8 +16,8 @@ def max_pooling(input: np.ndarray, size: int = 2, stride: int = 2) -> np.array:
 
     output = np.zeros((output_height, output_width))
 
-    for x in range(output_width):
-        for y in range(output_height):
+    for y in range(output_height):
+        for x in range(output_width):
             window = input[ y * stride:y * stride + size, x * stride:x * stride + size ]
             output[y, x] = np.max(window)
         
@@ -36,8 +36,8 @@ def adaptive_pooling(input: np.ndarray, target_size: tuple) -> np.ndarray:
     
     output = np.zeros(target_size, dtype=float)
 
-    for x in range(output_width):
-        for y in range(output_height):
+    for y in range(output_height):
+        for x in range(output_width):
             window = input[y * stride_height:y * stride_height + size_height, x * stride_width:x * stride_width + size_width]
             output[y, x] = np.max(window)
     
