@@ -32,6 +32,10 @@ if __name__ == '__main__':
     
     # Training
     for index, image in enumerate(images):
+
+
+        ## TODO: Convolution layer output sizes does not account for strides and pooling correctly.
+
         # First Convolution Layer (outputs a 3D tensor)
         image_width = np.size(image, 0) 
         image_height = np.size(image, 1)
