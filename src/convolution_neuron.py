@@ -26,7 +26,7 @@ class ConvolutionNeuron:
         for x in range(0, output_width, self.stride):
             for y in range(0, output_height, self.stride):
                 window = np.array( input[y:y + len(self.kernel), x:x + len(self.kernel[0])] )
-                self.activation[x, y] = np.sum(window * self.kernel)
+                self.activation[y, x] = np.sum(window * self.kernel)
 
         if nonLinear:
             activation = algorithms.leaky_relu(activation)
@@ -52,7 +52,7 @@ class ConvolutionNeuron:
         for x in range(0, output_width, self.stride):
             for y in range(0, output_height, self.stride):
                 cube = np.array( input[:, y:y + kernel_height, x:x + kernel_width] )
-                self.activation[x, y] = np.sum(cube * self.kernel)
+                self.activation[y, x] = np.sum(cube * self.kernel)
 
         if nonLinear:
             self.activation = algorithms.leaky_relu(self.activation)
