@@ -25,14 +25,14 @@ class ConvolutionNeuron:
 
         for y in range(0, output_height, self.stride):
             for x in range(0, output_width, self.stride):
-                window = np.array( input[y:y + len(self.kernel), x:x + len(self.kernel[0])] )
+                window = input[y:y + kernel_height, x:x + kernel_width]
                 self.activation[y, x] = np.sum(window * self.kernel)
 
         if nonLinear:
-            activation = algorithms.leaky_relu(activation)
+            self.activation = algorithms.leaky_relu(self.activation)
 
         if pooling:
-            self.activation = algorithms.max_pooling(activation)
+            self.activation = algorithms.max_pooling(self.activation)
 
     def convolve3d(self, input: np.ndarray, nonLinear:bool = False, pooling = False):
 
@@ -51,7 +51,7 @@ class ConvolutionNeuron:
 
         for y in range(0, output_height, self.stride):
             for x in range(0, output_width, self.stride):
-                cube = np.array( input[:, y:y + kernel_height, x:x + kernel_width] )
+                cube = input[:, y:y + kernel_height, x:x + kernel_width]
                 self.activation[y, x] = np.sum(cube * self.kernel)
 
         if nonLinear:
