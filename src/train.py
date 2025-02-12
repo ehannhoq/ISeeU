@@ -29,48 +29,61 @@ if __name__ == '__main__':
     images = load_images('training_data', grayscale=True)
 
     model.load_model()
-    debug = True
     
     # Training
     for index, image in enumerate(images):
         # First Convolution Layer (outputs a 3D tensor)
         image_width = np.size(image, 0) 
         image_height = np.size(image, 1)
-        sample_cn_one = model.model["cn_layer_one"][0]
-        layer_one_output = np.zeros((len(model.model["cn_layer_one"]), 
-                                    ((image_width - sample_cn_one.kernel.shape[0]) // sample_cn_one.stride),
-                                    ((image_height - sample_cn_one.kernel.shape[1]) // sample_cn_one.stride)
+        sample_convolution_neuron_l1 = model.model["cn_layer_one"][0]
+        cn_l1_output = np.zeros((len(model.model["cn_layer_one"]), 
+                                    ((image_width - sample_convolution_neuron_l1.kernel.shape[0]) // sample_convolution_neuron_l1.stride),
+                                    ((image_height - sample_convolution_neuron_l1.kernel.shape[1]) // sample_convolution_neuron_l1.stride)
                                     ), dtype=float)
-        algorithms.debug_message("Initialized first convolution layer output with shape: " + str(layer_one_output.shape), debug)
-        for i, cn in enumerate(model.model["cn_layer_one"]):
-            cn.convolve2d(image, nonlinear=True, pooling=True)
-            layer_one_output[i] = cn.activation
-            algorithms.debug_message(f"Convolved Image {i} out of {len(model.model['cn_layer_one'])}", debug)
-        algorithms.debug_message("First layer convolution successful.", debug)
+        for i, convolution_neuron_l1 in enumerate(model.model["cn_layer_one"]):
+            convolution_neuron_l1.convolve2d(image, nonlinear=True, pooling=True)
+            cn_l1_output[i] = convolution_neuron_l1.activation
 
         # Second Convolution Layer (ouputs a 3D tensor)
-        sample_cn_two = model.model["cn_layer_two"][0]
-        layer_two_output = np.zeros((len(model.model["cn_layer_two"]),
-                                    ((layer_one_output.shape[1] - sample_cn_two.kernel.shape[0]) // sample_cn_two.stride), 
-                                    ((layer_one_output.shape[2] - sample_cn_two.kernel.shape[1]) // sample_cn_two.stride),                                    
+        sample_convolution_neuron_l2 = model.model["cn_layer_two"][0]
+        cn_l2_output = np.zeros((len(model.model["cn_layer_two"]),
+                                    ((cn_l1_output.shape[1] - sample_convolution_neuron_l2.kernel.shape[0]) // sample_convolution_neuron_l2.stride), 
+                                    ((cn_l1_output.shape[2] - sample_convolution_neuron_l2.kernel.shape[1]) // sample_convolution_neuron_l2.stride),                                    
                                     ), dtype=float)
-        algorithms.debug_message("Initialized second convolution layer output with shape: " + str(layer_two_output.shape), debug)
-        for i, cn in enumerate(model.model["cn_layer_two"]):
-            cn.convolve3d(layer_one_output, nonlinear=True, pooling=True)
-            layer_two_output[i] = cn.activation
-            algorithms.debug_message(f"Convolved Image {i} out of {len(model.model['cn_layer_two'])}", debug)
-        algorithms.debug_message("Second layer convolution successful.", debug)
+        for i, convolution_neuron_l2 in enumerate(model.model["cn_layer_two"]):
+            convolution_neuron_l2.convolve3d(cn_l1_output, nonlinear=True, pooling=True)
+            cn_l2_output[i] = convolution_neuron_l2.activation
 
-        # Flattening output for fully connected layer.
-        flattened_output = layer_two_output.flatten()
-        algorithms.debug_message(f"Flattened output to shape: {flattened_output.shape}", debug)
+        # Enforce adaptive pooling to ensure all outputs are the same size, regardless of image input.
+        sample_fc_neuron_l1 = model.model["fc_layer_one"][0]
+        cn_l2_output = algorithms.adaptive_pooling(cn_l2_output, target_size=(sample_fc_neuron_l1.weights.shape[0], sample_fc_neuron_l1.weights.shape[0]))
+
+        # Flattening adaptively pooled output for fully connected layer.
+        flattened_output = cn_l2_output.flatten()
+
+        # First Fully Connected Layer (outputs a 1D array)
+        fc_l1_output = np.zeros((len(model.model["fc_layer_one"])))
+        for i, fc_neuron_l1 in enumerate(model.model["fc_layer_one"]):
+            fc_neuron_l1.calculate_activation(flattened_output)
+            fc_l1_output[i] = fc_neuron_l1.activation
+
+        # Second Fully Connected Layer (outputs a 1D array)
+        fc_l2_output = np.zeros((len(model.model["fc_layer_two"])))
+        for i, fc_neuron_l2 in enumerate(model.model["fc_layer_two"]):
+            fc_neuron_l2.calculate_activation(fc_l1_output)
+            fc_l2_output[i] = fc_neuron_l2.activation
+        
+        # Output Layer
+        output = np.zeros((len(model.model["output_neurons"])))
+        for i, output_neuron in enumerate(model.model["output_neurons"]):
+            output_neuron.calculate_activation(fc_l2_output)
+            output[i] = output_neuron.activation
 
 
-        # code that connects the convolved activation matricies to the fully connected layer
-        # determine cost using a set function -> cost returns a list matricies of adjustments for each node before the output node
-        # backpropagate using recursion, calculating the adjustments neede for the previous connected nodes
-        # repeat
+        x_neuron = model.model["output_neurons"][0]
+        y_neuron = model.model["output_neurons"][1]
+        width_neuron = model.model["output_neurons"][2]
+        height_neuron = model.model["output_neurons"][3]
 
-        # ** the model should output: the x, y, width, height of where the face is located.
-        # later, the box made will scale back up to the original un-scaled image and the
-        # new box will be drawn over the original image.
+        # code that draws a box depending on the x, y, width, and height.
+        # backpropagation code

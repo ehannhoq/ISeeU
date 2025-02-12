@@ -10,5 +10,8 @@ class Neuron:
         self.weights = weights
         self.bias = bias
 
+    def calculate_activation(self, input: np.ndarray):
+        self.activation = np.dot(input, self.activation) + self.bias
+
     def correction(target: float):
         pass
