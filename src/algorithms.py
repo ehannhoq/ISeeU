@@ -8,15 +8,19 @@ def leaky_relu(input: np.ndarray, alpha: float = 0.1) -> np.array:
 
 def max_pooling(input: np.ndarray, size: int = 2, stride: int = 2) -> np.array:
 
-    output_rows: int = (len(input) - size) // stride + 1
-    output_cols: int = (len(input[0]) - size) // stride + 1
+    assert len(input.shape) == 2, "Input must be 2D"
 
-    output = np.zeros((output_rows, output_cols))
+    input_height, input_width = input.shape
 
-    for x in range(output_rows):
-        for y in range(output_cols):
-            window = input[x * stride:x * stride + size, y * stride:y * stride + size]
-            output[x, y] = np.max(window)
+    output_width: int = (input_width - size) // stride + 1
+    output_height: int = (input_height - size) // stride + 1
+
+    output = np.zeros((output_height, output_width))
+
+    for x in range(output_width):
+        for y in range(output_height):
+            window = input[ y * stride:y * stride + size, x * stride:x * stride + size ]
+            output[y, x] = np.max(window)
         
     return output
 
