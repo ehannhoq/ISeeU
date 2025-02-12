@@ -32,10 +32,7 @@ if __name__ == '__main__':
     
     # Training
     for index, image in enumerate(images):
-
-
-        ## TODO: Convolution layer output sizes does not account for strides and pooling correctly.
-
+        
         # First Convolution Layer (outputs a 3D tensor)
         image_width = np.size(image, 0) 
         image_height = np.size(image, 1)
@@ -45,8 +42,12 @@ if __name__ == '__main__':
                                     ((image_height - sample_convolution_neuron_l1.kernel.shape[1]) // sample_convolution_neuron_l1.stride)
                                     ), dtype=float)
         for i, convolution_neuron_l1 in enumerate(model.model["cn_layer_one"]):
-            convolution_neuron_l1.convolve2d(image, nonlinear=True, pooling=True)
+            convolution_neuron_l1.convolve2d(image)
             cn_l1_output[i] = convolution_neuron_l1.activation
+
+        # Applying non-linearity and pooling.
+        cn_l1_output = algorithms.leaky_relu(cn_l1_output)
+        cn_l1_output = algorithms.max_pooling(cn_l1_output)
 
         # Second Convolution Layer (ouputs a 3D tensor)
         sample_convolution_neuron_l2 = model.model["cn_layer_two"][0]
@@ -55,12 +56,17 @@ if __name__ == '__main__':
                                     ((cn_l1_output.shape[2] - sample_convolution_neuron_l2.kernel.shape[1]) // sample_convolution_neuron_l2.stride),                                    
                                     ), dtype=float)
         for i, convolution_neuron_l2 in enumerate(model.model["cn_layer_two"]):
-            convolution_neuron_l2.convolve3d(cn_l1_output, nonlinear=True, pooling=True)
+            convolution_neuron_l2.convolve3d(cn_l1_output)
             cn_l2_output[i] = convolution_neuron_l2.activation
+
+        # Applying non-linearity and pooling.
+        cn_l2_output = algorithms.leaky_relu(cn_l2_output)
+        cn_l2_output = algorithms.max_pooling(cn_l2_output)
 
         # Enforce adaptive pooling to ensure all outputs are the same size, regardless of image input.
         sample_fc_neuron_l1 = model.model["fc_layer_one"][0]
-        cn_l2_output = algorithms.adaptive_pooling(cn_l2_output, target_size=(sample_fc_neuron_l1.weights.shape[0], sample_fc_neuron_l1.weights.shape[0]))
+        target_size = (sample_fc_neuron_l1.weights.shape[0], sample_fc_neuron_l1.weights.shape[0])
+        cn_l2_output = algorithms.adaptive_pooling(cn_l2_output, target_size=target_size)
 
         # Flattening adaptively pooled output for fully connected layer.
         flattened_output = cn_l2_output.flatten()

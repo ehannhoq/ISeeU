@@ -12,7 +12,7 @@ class ConvolutionNeuron:
         self.kernel = kernel
         self.stride = stride
 
-    def convolve2d(self, input: np.ndarray, nonLinear:bool = False, pooling = False):
+    def convolve2d(self, input: np.ndarray):
 
         assert len(self.kernel.shape) == len(input.shape), "Kernel and input dimension mismatch"
 
@@ -28,13 +28,7 @@ class ConvolutionNeuron:
                 window = input[y:y + kernel_height, x:x + kernel_width]
                 self.activation[y, x] = np.sum(window * self.kernel)
 
-        if nonLinear:
-            self.activation = algorithms.leaky_relu(self.activation)
-
-        if pooling:
-            self.activation = algorithms.max_pooling(self.activation)
-
-    def convolve3d(self, input: np.ndarray, nonLinear:bool = False, pooling = False):
+    def convolve3d(self, input: np.ndarray):
 
         assert len(self.kernel.shape) == len(input.shape), "Kernel and input dimension mismatch"
 
@@ -53,13 +47,6 @@ class ConvolutionNeuron:
             for x in range(0, output_width, self.stride):
                 cube = input[:, y:y + kernel_height, x:x + kernel_width]
                 self.activation[y, x] = np.sum(cube * self.kernel)
-
-        if nonLinear:
-            self.activation = algorithms.leaky_relu(self.activation)
-
-        if pooling:
-            self.activation = algorithms.max_pooling(self.activation)
-        
 
     def correction(target: np.ndarray):
         pass
