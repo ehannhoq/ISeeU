@@ -92,14 +92,17 @@ def leaky_relu_gradient(input, alpha: float = 0.1):
 def resize_image(image: np.ndarray, target_size: tuple) -> np.ndarray:
     current_height, current_width = image.shape
 
-    if current_width > current_height:
-        aspect_ratio = current_width / current_height
-        new_width = target_size[1]
-        new_height = int(aspect_ratio * new_width)
-    else:
-        aspect_ratio = current_height / current_width
-        new_height = target_size[0]
-        new_width = int(aspect_ratio * new_height)
+    if current_height > target_size[0] or current_width < target_size[1]:
+    
+        if current_width > current_height:
+            aspect_ratio = current_width / current_height
+            new_width = target_size[1]
+            new_height = int(aspect_ratio * new_width)
+        else:
+            aspect_ratio = current_height / current_width
+            new_height = target_size[0]
+            new_width = int(aspect_ratio * new_height)
+            
 
     resized_image = cv.resize(src=image, dsize=(new_width, new_height))
 
