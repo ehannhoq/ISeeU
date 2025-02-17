@@ -7,14 +7,14 @@ import algorithms
 
 import model
 
-def load_images(path: str, grayscale: bool = True) -> np.ndarray:
+def load_images(path: str) -> np.ndarray:
     image_data = []
 
     for filename in os.listdir(path):
         if filename.lower().endswith(('.jpg', '.png', '.jpeg')):
             image = mpimg.imread(os.path.join(path, filename))
 
-            if grayscale and len(image.shape) == 3:
+            if len(image.shape) == 3:
                 image = np.dot(image[...,:3], [0.299, 0.587, 0.114])
 
             aspect_ratio = image.shape[1] / image.shape[0]
@@ -30,7 +30,7 @@ def string_to_numbers(string: str) -> list:
 
 if __name__ == '__main__':
     # Fetching training data
-    images = load_images('training_data', grayscale=True)
+    images = load_images('training_data')
 
     model.load_model()
     
