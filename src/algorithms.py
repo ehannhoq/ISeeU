@@ -2,8 +2,28 @@ import numpy as np
 import cv2 as cv
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+def convolve2d(input: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+    assert len(kernel.shape) == len(input.shape), "Kernel and input dimension mismatch"
+>>>>>>> parent of 0faf934 (training set now takes in rgb images)
 
-def convolve(input: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+    input_height, input_width = input.shape
+    kernel_height, kernel_width = kernel.shape
+
+    output_width = input_width - kernel_width
+    output_height = input_height - kernel_height
+    activation = np.zeros((output_height, output_width), dtype=float)
+
+    for y in range(output_height):
+        for x in range(output_width):
+            window = input[y:y + kernel_height, x:x + kernel_width]
+            activation[y, x] = np.sum(window * kernel)
+    
+    return activation
+
+
+def convolve3d(input: np.ndarray, kernel: np.ndarray) -> np.ndarray:
     assert len(kernel.shape) == len(input.shape), "Kernel and input dimension mismatch"
 
     input_depth, input_height, input_width = input.shape
@@ -25,7 +45,7 @@ def convolve(input: np.ndarray, kernel: np.ndarray) -> np.ndarray:
     return output
 
 
-def gradient_convolve(error_gradient: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+def convolve_gradient(error_gradient: np.ndarray, kernel: np.ndarray) -> np.ndarray:
     assert len(kernel.shape) == len(error_gradient.shape), "Kernel and error gradient dimension mismatch"
 
     error_height, error_width = error_gradient.shape
@@ -95,12 +115,16 @@ def leaky_relu_gradient(input, alpha: float = 0.1):
 <<<<<<< HEAD
 
 def resize_image(image: np.ndarray, target_size: tuple) -> np.ndarray:
+<<<<<<< HEAD
     current_height, current_width, current_channels = image.shape
 =======
 def resize_image(input: np.ndarray) -> np.ndarray:
     current_width = np.size(input, 0)
     current_height = np.size(input, 1)
 >>>>>>> parent of bbc1e17 (switched from oop to matricies)
+=======
+    current_height, current_width = image.shape
+>>>>>>> parent of 0faf934 (training set now takes in rgb images)
 
     if current_width > current_height:
         return cv.resize(input, (300, int(300 * current_height / current_width)))
@@ -113,7 +137,7 @@ def resize_image(input: np.ndarray) -> np.ndarray:
     resized_image = cv.resize(src=image, dsize=(new_width, new_height))
 
     output = np.zeros(target_size, dtype=image.dtype)
-    output[ 0:resized_image.shape[0], 0:resized_image.shape[1] , :] = resized_image
+    output[ 0:resized_image.shape[0], 0:resized_image.shape[1] ] = resize_image
     return output
 =======
         return cv.resize(input, (int(300 * current_width / current_height), 300))
