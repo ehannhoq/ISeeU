@@ -48,3 +48,21 @@ class ConvolutionNeuron:
             for x in range(output_width):
                 cube = input[:, y:y + kernel_height, x:x + kernel_width]
                 self.activation[y, x] = np.sum(cube * self.kernel)
+
+    def convolve_gradient(self, error_gradient: np.ndarray) -> np.ndarray:
+
+        assert len(self.kernel.shape) == len(error_gradient.shape), "Kernel and error gradient dimension mismatch"
+
+        error_height, error_width = error_gradient.shape
+        kernel_height, kernel_width = self.kernel.shape
+
+        output_width = error_width + kernel_width - 1
+        output_height = error_height + kernel_height - 1
+
+        output = np.zeros((output_height, output_width), dtype=float)
+
+        for y in range(output_height):
+            for x in range(output_width):
+                output[y:y + kernel_height, x:x + kernel_height] += error_gradient[y, x] * self.kernel
+
+        return output

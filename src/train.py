@@ -135,12 +135,12 @@ if __name__ == '__main__':
         cn2_error_gradient = np.zeros_like(cn_l2_output)
         for i, cn_l2_neuron in enumerate(model.model["cn_layer_two"]):
             activation_derivative = algorithms.leaky_relu_gradient(cn_l2_neuron.activation)
-            cn2_error_gradient[i] = algorithms.convolve_gradient(fc1_error_gradient[i], cn_l2_neuron.kernel) * activation_derivative
+            cn2_error_gradient[i] = cn_l2_neuron.convolve_gradient(fc1_error_gradient[i]) * activation_derivative
 
         cn1_error_gradient = np.zeros_like(cn_l1_output)
         for i, cn_l1_neuron in enumerate(model.model["cn_layer_one"]):
             activation_derivative = algorithms.leaky_relu_gradient(cn_l1_neuron.activation)
-            cn1_error_gradient[i] = algorithms.convolve_gradient(cn2_error_gradient, cn_l1_neuron.kernel) * activation_derivative
+            cn1_error_gradient[i] = cn_l1_neuron.convolve_gradient(cn2_error_gradient) * activation_derivative
 
         # Adjusting weights and biases
         for i, output_neuron in enumerate(model.model["output_layer"]):

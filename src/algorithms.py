@@ -49,24 +49,6 @@ def mean_squared_error_gradient(predicted: np.ndarray, expected: np.ndarray) -> 
 def leaky_relu_gradient(input, alpha: float = 0.1):
     return np.where(input > 0, 1, alpha)    
 
-def convolve_gradient(error_gradient: np.ndarray, kernel: np.ndarray) -> np.ndarray:
-
-    assert len(kernel.shape) == len(error_gradient.shape), "Kernel and error gradient dimension mismatch"
-
-    error_height, error_width = error_gradient.shape
-    kernel_height, kernel_width = kernel.shape
-
-    output_width = error_width + kernel_width - 1
-    output_height = error_height + kernel_height - 1
-
-    output = np.zeros((output_height, output_width), dtype=float)
-
-    for y in range(output_height):
-        for x in range(output_width):
-            output[y:y + kernel_height, x:x + kernel_height] += error_gradient[y, x] * kernel
-
-    return output
-
 def resize_image(input: np.ndarray) -> np.ndarray:
     current_width = np.size(input, 0)
     current_height = np.size(input, 1)
