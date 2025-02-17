@@ -2,9 +2,12 @@ import json
 import os
 import numpy as np
 
+import convolution_neuron as cn
+import neuron
 
 model = {}
 
+<<<<<<< HEAD
 input_size = (500, 500)
 
 cn1_neurons = 16
@@ -20,91 +23,69 @@ fc2_neurons = 128
 output_neurons = 4
 
 
+=======
+>>>>>>> parent of bbc1e17 (switched from oop to matricies)
 def save_data():
     global model
     with open(f'src/data.json', "w") as f:
         json.dump(serialize_data(model), f)
-        
+
 
 def load_data():
     global model
     with open(f'src/data.json', "r") as f:
         model = deserialize_data(json.load(f))
-        
 
-def serialize_data(data):
+def serialize_data(model):
     return {
-        "w_cn1": [ cn1_weights.tolist() for cn1_weights in data["w_cn1"] ],
-        "w_cn2": [ cn2_weights.tolist() for cn2_weights in data["w_cn2"] ],
-        "w_fc1": [ fc1_weights.tolist() for fc1_weights in data["w_fc1"] ],
-        "w_fc2": [ fc2_weights.tolist() for fc2_weights in data["w_fc2"] ],
-        "w_output": [ output_weights.tolist() for output_weights in data["w_output"] ],
-
-        "b_cn1": [ cn1_bias.tolist() for cn1_bias in data["b_cn1"] ],
-        "b_cn2": [ cn2_bias.tolist() for cn2_bias in data["b_cn2"] ],
-        "b_fc1": [ fc1_bias.tolist() for fc1_bias in data["b_fc1"] ],
-        "b_fc2": [ fc2_bias.tolist() for fc2_bias in data["b_fc2"] ],
-        "b_output": [ output_bias.tolist() for output_bias in data["b_output"] ]
+        "cn_layer_one": [neuron.kernel.tolist(), neuron.bias for neuron in model["cn_layer_one"]],
+        "cn_layer_two": [neuron.kernel.tolist(), neuron.bias for neuron in model["cn_layer_two"]],
+        "fc_layer_one": [(neuron.weights.tolist(), neuron.bias) for neuron in model["fc_layer_one"]],
+        "fc_layer_two": [(neuron.weights.tolist(), neuron.bias) for neuron in model["fc_layer_two"]],
+        "output_layer": [(neuron.weights.tolist(), neuron.bias) for neuron in model["output_layer"]]
     }
 
-
+# Helper function to deserialize model
 def deserialize_data(data):
     return {
-        "w_cn1": np.array(data["w_cn1"]),
-        "w_cn2": np.array(data["w_cn2"]),
-        "w_fc1": np.array(data["w_fc1"]),
-        "w_fc2": np.array(data["w_fc2"]),
-        "w_output": np.array(data["w_output"]),
-
-        "b_cn1": np.array(data["b_cn1"]),
-        "b_cn2": np.array(data["b_cn2"]),
-        "b_fc1": np.array(data["b_fc1"]),
-        "b_fc2": np.array(data["b_fc2"]),
-        "b_output": np.array(data["b_output"])
+        "cn_layer_one": [cn.ConvolutionNeuron(np.array(kernel), bias) for kernel, bias in data["cn_layer_one"]],
+        "cn_layer_two": [cn.ConvolutionNeuron(np.array(kernel), bias) for kernel, bias in data["cn_layer_two"]],
+        "fc_layer_one": [neuron.Neuron(np.array(weights), bias) for weights, bias in data["fc_layer_one"]],
+        "fc_layer_two": [neuron.Neuron(np.array(weights), bias) for weights, bias in data["fc_layer_two"]],
+        "output_layer": [neuron.Neuron(np.array(weights), bias) for weights, bias in data["output_layer"]]
     }
 
+    
 
 def load_model():
     global model
 
+    num_layer_one_cn = 16
+    num_layer_two_cn = 32
+    num_layer_one_fc = 256
+    num_layer_two_fc = 128
+    num_output_layer = 4
+
+
     if os.path.exists("src/data.json"):
         load_data()
     else:
-        k_cn1 = np.random.randn(cn1_neurons, cn1_kernel_shape[0], cn1_kernel_shape[1])
-        k_cn2 = np.random.randn(cn2_neurons, cn2_kernel_shape[0], cn2_kernel_shape[1], cn2_kernel_shape[2])
-
-        output_height_cn1 = input_size[0] - cn1_kernel_shape[0]
-        output_width_cn1 = input_size[1] - cn1_kernel_shape[0]
-
-        output_height_cn2 = output_height_cn1 - cn2_kernel_shape[0]
-        output_width_cn2 = output_width_cn1 - cn2_kernel_shape[1]
-
-        flattened_size = cn2_neurons * output_height_cn2 * output_width_cn2
+        layer_one_cn = [ cn.ConvolutionNeuron(np.random.randn(3, 3), np.random.randn()) for _ in range(num_layer_one_cn) ]
+        layer_two_cn = [ cn.ConvolutionNeuron(np.random.randn(num_layer_one_cn, 3, 3), np.random.randn()) for _ in range(num_layer_two_cn) ]
         
-        w_fc1 = np.random.randn(flattened_size, fc1_neurons)
-        w_fc2 = np.random.randn(fc1_neurons, fc2_neurons)   
-
-        w_output = np.random.randn(fc2_neurons, output_neurons)
-
-        b_cn1 = np.random.randn(cn1_neurons)
-        b_cn2 = np.random.randn(cn2_neurons)
-        b_fc1 = np.random.randn(fc1_neurons)
-        b_fc2 = np.random.randn(fc2_neurons)
-        b_output = np.random.randn(output_neurons)
+        layer_one_fc = [ neuron.Neuron(np.random.randn(50), np.random.randn()) for _ in range(num_layer_one_fc) ]
+        layer_two_fc = [ neuron.Neuron(np.random.randn(num_layer_one_fc), np.random.randn()) for _ in range(num_layer_two_fc) ]
         
+        output_layer = [ neuron.Neuron(np.random.randn(num_layer_two_fc), np.random.randn()) for _ in range(num_output_layer) ]
+
 
         model = {
-            "k_cn1": k_cn1,
-            "k_cn2": k_cn2,
-            "w_fc1": w_fc1,
-            "w_fc2": w_fc2,
-            "w_output": w_output,
-
-            "b_cn1": b_cn1,
-            "b_cn2": b_cn2,
-            "b_fc1": b_fc1,
-            "b_fc2": b_fc2,
-            "b_output": b_output
+            "cn_layer_one": layer_one_cn,
+            "cn_layer_two": layer_two_cn,
+            "fc_layer_one": layer_one_fc,
+            "fc_layer_two": layer_two_fc,
+            "output_layer": output_layer
         }
 
         save_data()
+
