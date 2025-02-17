@@ -79,6 +79,9 @@ def load_model():
         output_height_cn2 = output_height_cn1 - cn2_kernel_shape[0]
         output_width_cn2 = output_width_cn1 - cn2_kernel_shape[1]
 
+        output_height_cn2 = output_height_cn2 // 2
+        output_width_cn2 = output_width_cn2 // 2
+
         flattened_size = cn2_neurons * output_height_cn2 * output_width_cn2
         
         w_fc1 = np.random.randn(flattened_size, fc1_neurons)
