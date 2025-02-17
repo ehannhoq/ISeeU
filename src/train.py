@@ -34,7 +34,6 @@ if __name__ == '__main__':
 
     model.load_model()
     
-
     # Training
     for data in images:
 
@@ -150,6 +149,9 @@ if __name__ == '__main__':
         for i in range(model.cn1_neurons):
             model.model["k_cn1"][i] -= learning_rate * np.dot(image, cn1_delta.T)
             model.model["b_cn1"][i] -= learning_rate * np.sum(cn1_delta)
+
+    
+    model.save_data()
 
 
 
