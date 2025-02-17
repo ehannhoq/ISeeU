@@ -7,19 +7,15 @@ import algorithms
 
 import model
 
-def load_images(path: str, grayscale: bool = True) -> np.ndarray:
+def load_images(path: str) -> np.ndarray:
     image_data = []
 
     for filename in os.listdir(path):
         if filename.lower().endswith(('.jpg', '.png', '.jpeg')):
             image = mpimg.imread(os.path.join(path, filename))
 
-            if grayscale and len(image.shape) == 3:
-                image = np.dot(image[...,:3], [0.299, 0.587, 0.114])
-
             aspect_ratio = image.shape[1] / image.shape[0]
             image = algorithms.resize_image(image=image, target_size=model.image_size)
-
 
             image_data.append(np.array([string_to_numbers(filename.split(".")[0])]), image, aspect_ratio)
 
@@ -53,7 +49,7 @@ if __name__ == '__main__':
             image.shape[1] - model.cn1_kernel_shape[1]
         ))
         for i in range(model.cn1_neurons):
-            cn1_activation[i] = algorithms.convolve2d(image, model.model["w_cn1"][i]) + model.model["b_cn1"][i]
+            cn1_activation[i] = algorithms.convolve(image, model.model["w_cn1"][i]) + model.model["b_cn1"][i]
         cn1_activation = algorithms.max_pooling(cn1_activation)
 
 
@@ -64,7 +60,7 @@ if __name__ == '__main__':
             cn1_activation.shape[1] - model.cn2_kernel_shape[1]
         ))
         for i in range(model.cn2_neurons):
-            cn2_activation[i] = algorithms.convolve3d(algorithms.leaky_relu(cn1_activation), model.model["w_cn2"][i]) + model.model["b_cn2"][i]
+            cn2_activation[i] = algorithms.convolve(algorithms.leaky_relu(cn1_activation), model.model["w_cn2"][i]) + model.model["b_cn2"][i]
         cn2_activation = algorithms.max_pooling(cn2_activation)
 
 
@@ -123,11 +119,11 @@ if __name__ == '__main__':
         fc1_delta_reshaped = fc1_delta.reshape(cn2_activation)
         cn2_delta = np.zeros_like(cn2_activation)
         for i in range(model.cn2_neurons):
-            cn2_delta[i] = algorithms.convolve_gradient(fc1_delta_reshaped, model.model["k_cn2"][i]) * algorithms.leaky_relu_gradient(cn2_activation)
+            cn2_delta[i] = algorithms.gradient_convolve(fc1_delta_reshaped, model.model["k_cn2"][i]) * algorithms.leaky_relu_gradient(cn2_activation)
 
         cn1_delta = np.zeros_like(cn1_activation)
         for i in range(model.cn1_neurons):
-            cn1_delta[i] = algorithms.convolve_gradient(fc2_delta, model.model["k_cn1"][i]) * algorithms.leaky_relu_gradient(cn1_activation)
+            cn1_delta[i] = algorithms.gradient_convolve(fc2_delta, model.model["k_cn1"][i]) * algorithms.leaky_relu_gradient(cn1_activation)
 
 
         # Adjust weights/kernels and biases

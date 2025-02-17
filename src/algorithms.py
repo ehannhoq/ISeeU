@@ -1,25 +1,8 @@
 import numpy as np
 import cv2 as cv
 
-def convolve2d(input: np.ndarray, kernel: np.ndarray) -> np.ndarray:
-    assert len(kernel.shape) == len(input.shape), "Kernel and input dimension mismatch"
 
-    input_height, input_width = input.shape
-    kernel_height, kernel_width = kernel.shape
-
-    output_width = input_width - kernel_width
-    output_height = input_height - kernel_height
-    activation = np.zeros((output_height, output_width), dtype=float)
-
-    for y in range(output_height):
-        for x in range(output_width):
-            window = input[y:y + kernel_height, x:x + kernel_width]
-            activation[y, x] = np.sum(window * kernel)
-    
-    return activation
-
-
-def convolve3d(input: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+def convolve(input: np.ndarray, kernel: np.ndarray) -> np.ndarray:
     assert len(kernel.shape) == len(input.shape), "Kernel and input dimension mismatch"
 
     input_depth, input_height, input_width = input.shape
@@ -41,7 +24,7 @@ def convolve3d(input: np.ndarray, kernel: np.ndarray) -> np.ndarray:
     return output
 
 
-def convolve_gradient(error_gradient: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+def gradient_convolve(error_gradient: np.ndarray, kernel: np.ndarray) -> np.ndarray:
     assert len(kernel.shape) == len(error_gradient.shape), "Kernel and error gradient dimension mismatch"
 
     error_height, error_width = error_gradient.shape
@@ -90,7 +73,7 @@ def leaky_relu_gradient(input, alpha: float = 0.1):
 
 
 def resize_image(image: np.ndarray, target_size: tuple) -> np.ndarray:
-    current_height, current_width = image.shape
+    current_height, current_width, current_channels = image.shape
 
     if current_width > current_height:
         aspect_ratio = current_width / current_height
@@ -104,5 +87,5 @@ def resize_image(image: np.ndarray, target_size: tuple) -> np.ndarray:
     resized_image = cv.resize(src=image, dsize=(new_width, new_height))
 
     output = np.zeros(target_size, dtype=image.dtype)
-    output[ 0:resized_image.shape[0], 0:resized_image.shape[1] ] = resize_image
+    output[ 0:resized_image.shape[0], 0:resized_image.shape[1] , :] = resized_image
     return output

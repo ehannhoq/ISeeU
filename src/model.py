@@ -8,7 +8,7 @@ model = {}
 input_size = (500, 500)
 
 cn1_neurons = 16
-cn1_kernel_shape = (3, 3)
+cn1_kernel_shape = (3, 3, 3)
 
 cn2_neurons = 32
 cn2_kernel_shape = (cn1_neurons, 3, 3)
