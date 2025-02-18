@@ -41,19 +41,6 @@ def load_training_data(path: str):
             } )
     
         return dataset
-    
-def display_prediction(image, predictions):
-    fig, ax = plt.subplots(1)
-    ax.imshow(image)
-
-    for (x, y, w, h, confidence) in predictions:
-        rect = patches.Rectangle((x, y), w, h, linewidth=2, edgecolor="r", facecolor="none")
-        ax.add_patch(rect)
-
-        ax.text((x, y), f"Confidence: {confidence:.2f}", color="red", fontsize=12, ha="center", va="center")
-
-    plt.show()
-
 
 
 if __name__ == '__main__':
@@ -73,7 +60,6 @@ if __name__ == '__main__':
         image = data["image"]
         expected = data["bounding_boxes"]
         original_aspect_ratio = data["original_aspect_ratio"]
-        confidence_threshold = 0.8
         learning_rate = 0.005
         print("Preprosessing done.")
 
@@ -126,7 +112,7 @@ if __name__ == '__main__':
         print("Prediction done.")
         
 
-        display_prediction(image, algorithms.leaky_relu(output_activation))
+        model.display_prediction(image, algorithms.leaky_relu(output_activation))
         print("Displaying prediction.")
 
 
