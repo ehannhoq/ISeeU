@@ -7,43 +7,58 @@ import algorithms
 
 import model
 
-def load_images(path: str) -> np.ndarray:
-    image_data = []
+def load_training_data(path: str):
+    dataset = []
 
-    for filename in os.listdir(path):
-        if filename.lower().endswith(('.jpg', '.png', '.jpeg')):
-            image = mpimg.imread(os.path.join(path, filename))
+    with open(os.path.join(path, "image_info.txt"), mode='r') as f:
+        lines = f.readlines
 
-            if len(image.shape) == 3:
-                image = np.dot(image[...,:3], [0.299, 0.587, 0.114])
+    i = 0
+    while i < len(lines):
+        image_name = lines[i].strip()
+        image_path = os.path.join(path, image_name)
+        image = mpimg.imread(image_path)
+        if len(image.shape) == 3:
+            image = np.dot(image[...,:3], [0.299, 0.587, 0.114])
+        aspect_ratio = image.shape[1] / image.shape[0]
+        dataset["aspect_ratios"].append(aspect_ratio)
+        image = algorithms.resize_image(image=image, target_size=model.image_size)
+        i += 1
 
-            aspect_ratio = image.shape[1] / image.shape[0]
-            image = algorithms.resize_image(image=image, target_size=model.image_size)
+        num_faces = int(lines[i].strip())
+        i += 1
+
+        bounding_boxes = []
+        for _ in range(num_faces):
+            bbox_info = list(map(int, lines[i].split()))
+            x, y, w, h = bbox_info[:4]
+            bounding_boxes.append( (x, y, w, h) )
+            i += 1
+
+        dataset.append( {
+            "image": image, 
+            "original_aspect_ratio": aspect_ratio, 
+            "bounding_boxes": bounding_boxes
+            } )
+    
+        return dataset
 
 
-            image_data.append(np.array([string_to_numbers(filename.split(".")[0])]), image, aspect_ratio)
-
-    return np.array(image_data)
-
-def string_to_numbers(string: str) -> list:
-    return [int(x) for x in string.split(",")]
 
 if __name__ == '__main__':
     # Fetching training data
-    images = load_images('training_data')
+    dataset = load_training_data('training_data')
 
     model.load_model()
     
     # Training
-    for data in images:
-
+    for index, data in enumerate(dataset):
 
         # Preprosessing
-        expected = data[0]
-        image = data[1]
-        aspect_ratio = data[2]
+        image = data["image"]
+        expected = data["bounding_boxes"]
+        original_aspect_ratio = data["original_aspect_ratio"]
         learning_rate = 0.005
-
 
         # First Convolution Layer
         cn1_activation = np.zeros((
