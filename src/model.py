@@ -33,7 +33,7 @@ def load_data():
     loaded = np.load("src/model.npz", allow_pickle=True)
     model.update(loaded)
         
-def create_new_model():
+def new_model():
     global model
 
     k_cn1 = np.random.randn(cn1_neurons, cn1_kernel_shape[0], cn1_kernel_shape[1])
@@ -85,7 +85,7 @@ def load_model(create_new_model: bool):
     if os.path.exists("src/model.npz"):
         load_model()
     elif create_new_model:
-        create_new_model()
+        new_model()
     else:
         raise Exception("Model not found.")
 
