@@ -67,23 +67,22 @@ def sigmoid(input):
 
 
 def max_pooling(input: np.ndarray, size: int = 2, stride: int = 2) -> np.ndarray:
-    assert len(input.shape) == 2, "Input must be 2D"
+    input_depth, input_height, input_width = input.shape
 
-    input_height, input_width = input.shape
-
-    output_width = (input_width - size) // stride + 1
     output_height = (input_height - size) // stride + 1
+    output_width = (input_width - size) // stride + 1
 
-    output = np.zeros((output_height, output_width))
+    output = np.zeros((input_depth, output_height, output_width), dtype=float)
 
-    for y in range(output_height):
-        for x in range(output_width):
-            window = input[ y * stride:y * stride + size, x * stride:x * stride + size ]
-            output[y, x] = np.max(window)
-        
+    for d in range(input_depth):
+        for y in range(output_height):
+            for x in range(output_width):
+                window = input[ d, y * stride:y * stride + size, x * stride:x * stride + size ]
+                output[d, y, x] = np.max(window)
+    
     return output
 
-
+    
 def mean_squared_error_gradient(predicted: np.ndarray, expected: np.ndarray) -> np.ndarray:
     return 2 * (predicted - expected)
 
