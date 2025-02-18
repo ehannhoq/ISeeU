@@ -73,11 +73,9 @@ if __name__ == '__main__':
         image = data["image"]
         expected = data["bounding_boxes"]
         original_aspect_ratio = data["original_aspect_ratio"]
-
         confidence_threshold = 0.8
         learning_rate = 0.005
-
-        print("Preprosessng done.")
+        print("Preprosessing done.")
 
         # First Convolution Layer
         cn1_activation = np.zeros((
@@ -86,9 +84,8 @@ if __name__ == '__main__':
             image.shape[1] - model.cn1_kernel_shape[1]
         ))
         for i in range(model.cn1_neurons):
-            cn1_activation[i] = algorithms.convolve2d(image, model.model["w_cn1"][i]) + model.model["b_cn1"][i]
+            cn1_activation[i] = algorithms.convolve2d(image, model.model["k_cn1"][i]) + model.model["b_cn1"][i]
         cn1_activation = algorithms.max_pooling(cn1_activation)
-
         print("First CN layer done.")
 
         # Second Convolution Layer
@@ -98,9 +95,8 @@ if __name__ == '__main__':
             cn1_activation.shape[1] - model.cn2_kernel_shape[1]
         ))
         for i in range(model.cn2_neurons):
-            cn2_activation[i] = algorithms.convolve3d(algorithms.leaky_relu(cn1_activation), model.model["w_cn2"][i]) + model.model["b_cn2"][i]
+            cn2_activation[i] = algorithms.convolve3d(algorithms.leaky_relu(cn1_activation), model.model["k_cn2"][i]) + model.model["b_cn2"][i]
         cn2_activation = algorithms.max_pooling(cn2_activation)
-
         print("Second CN layer done.")
 
         # Flattened output for fully connected layer
@@ -127,8 +123,12 @@ if __name__ == '__main__':
 
         output_bounding_boxes = algorithms.leaky_relu(output_activation[:, :4])
         output_confidence = algorithms.sigmoid(output_activation[:, 4])
+        print("Prediction done.")
+        
 
         display_prediction(image, algorithms.leaky_relu(output_activation))
+        print("Displaying prediction.")
+
 
         confidence_labels = algorithms.assign_ground_truth(output_bounding_boxes, expected)
 
@@ -169,6 +169,8 @@ if __name__ == '__main__':
 
         model.model["w_cn1"] -= learning_rate * np.dot(image, cn1_delta.T)
         model.model["b_cn1"] -= learning_rate * np.sum(cn1_delta, acis=0)
+        print("Adjusted weights and biases.")
+
 
     model.save_data()
 

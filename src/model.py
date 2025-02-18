@@ -1,4 +1,3 @@
-import json
 import os
 import numpy as np
 
@@ -24,52 +23,19 @@ output_neurons = 5 * maximum_faces
 
 def save_data():
     global model
-    with open(f'src/data.json', "w") as f:
-        json.dump(serialize_data(model), f)
-        
+    np.savez_compressed("src/model.npz", **model)
+
 
 def load_data():
     global model
-    with open(f'src/data.json', "r") as f:
-        model = deserialize_data(json.load(f))
+    loaded = np.load("src/model.npz", allow_pickle=True)
+    model.update(loaded)
         
-
-def serialize_data(data):
-    return {
-        "k_cn1": [ cn1_weights.tolist() for cn1_weights in data["k_cn1"] ],
-        "k_cn2": [ cn2_weights.tolist() for cn2_weights in data["k_cn2"] ],
-        "w_fc1": [ fc1_weights.tolist() for fc1_weights in data["w_fc1"] ],
-        "w_fc2": [ fc2_weights.tolist() for fc2_weights in data["w_fc2"] ],
-        "w_output": [ output_weights.tolist() for output_weights in data["w_output"] ],
-
-        "b_cn1": [ cn1_bias.tolist() for cn1_bias in data["b_cn1"] ],
-        "b_cn2": [ cn2_bias.tolist() for cn2_bias in data["b_cn2"] ],
-        "b_fc1": [ fc1_bias.tolist() for fc1_bias in data["b_fc1"] ],
-        "b_fc2": [ fc2_bias.tolist() for fc2_bias in data["b_fc2"] ],
-        "b_output": [ output_bias.tolist() for output_bias in data["b_output"] ]
-    }
-
-
-def deserialize_data(data):
-    return {
-        "k_cn1": np.array(data["k_cn1"]),
-        "k_cn2": np.array(data["k_cn2"]),
-        "w_fc1": np.array(data["w_fc1"]),
-        "w_fc2": np.array(data["w_fc2"]),
-        "w_output": np.array(data["w_output"]),
-
-        "b_cn1": np.array(data["b_cn1"]),
-        "b_cn2": np.array(data["b_cn2"]),
-        "b_fc1": np.array(data["b_fc1"]),
-        "b_fc2": np.array(data["b_fc2"]),
-        "b_output": np.array(data["b_output"])
-    }
-
 
 def load_model():
     global model
 
-    if os.path.exists("src/data.json"):
+    if os.path.exists("src/model.npz"):
         load_data()
     else:
         k_cn1 = np.random.randn(cn1_neurons, cn1_kernel_shape[0], cn1_kernel_shape[1])
