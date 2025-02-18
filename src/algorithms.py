@@ -62,8 +62,11 @@ def convolve_gradient(error_gradient: np.ndarray, kernel: np.ndarray) -> np.ndar
 def leaky_relu(input, alpha: float = 0.1):
     return np.where(input > 0, input, alpha * input)
 
+def sigmoid(input):
+    return 1 / 1 + np.pow(np.e, -input)
 
-def max_pooling(input: np.ndarray, size: int = 2, stride: int = 2) -> np.array:
+
+def max_pooling(input: np.ndarray, size: int = 2, stride: int = 2) -> np.ndarray:
     assert len(input.shape) == 2, "Input must be 2D"
 
     input_height, input_width = input.shape
@@ -88,24 +91,67 @@ def mean_squared_error_gradient(predicted: np.ndarray, expected: np.ndarray) -> 
 def leaky_relu_gradient(input, alpha: float = 0.1):
     return np.where(input > 0, 1, alpha)    
 
+def sigmoid_gradient(input):
+    pass
+
+def iou(box1, box2):
+    x1, y1, w1, h1 = box1
+    x2, y2, w2, h2 = box2
+
+    x1_int = max(x1, x2)
+    y1_int = max(y1, y2)
+    x2_int = min(x1 + w1, x2 + w2)
+    y2_int = min(y1 + h1, y2 + h2)
+
+    w_int = max(0, x2_int - x1_int)
+    h_int = max(0, y2_int - y1_int)
+
+    intersection_area = w_int * h_int
+
+    union_area = w1 * h1 + w2 * h2
+
+    return intersection_area / union_area if union_area != 0 else 0
+
+
+def assign_ground_truth(predicted_boxes, actual_boxes, iou_threshold = 0.5):
+    confidence_labels = []
+
+    for predicted in predicted_boxes:
+        max_iou = 0
+        for actual in actual_boxes:
+            iou = iou(predicted, actual)
+            max_iou = max(iou, max_iou)
+
+        if max_iou > iou_threshold:
+            confidence_labels.append(1)
+        else:
+            confidence_labels.append(0)
+
+    return confidence_labels
+
+
+def binary_cross_entropy_gradient(ground_truth, predicted):
+    return ( -ground_truth / predicted ) + ( (1 - ground_truth) / (1 - predicted) )
+
 
 def resize_image(image: np.ndarray, target_size: tuple) -> np.ndarray:
     current_height, current_width = image.shape
-
-    if current_height > target_size[0] or current_width < target_size[1]:
+    target_height, target_width = target_size
+    
+    if current_height > target_height or current_width < target_width:
     
         if current_width > current_height:
-            aspect_ratio = current_width / current_height
-            new_width = target_size[1]
+            new_width = target_width
+            aspect_ratio = current_height / current_width
             new_height = int(aspect_ratio * new_width)
         else:
-            aspect_ratio = current_height / current_width
-            new_height = target_size[0]
+            aspect_ratio = current_width / current_height
+            new_height = target_height
             new_width = int(aspect_ratio * new_height)
             
 
     resized_image = cv.resize(src=image, dsize=(new_width, new_height))
 
     output = np.zeros(target_size, dtype=image.dtype)
-    output[ 0:resized_image.shape[0], 0:resized_image.shape[1] ] = resize_image
+    output[ 0:resized_image.shape[0], 0:resized_image.shape[1] ] = resized_image
     return output

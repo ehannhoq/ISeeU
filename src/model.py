@@ -17,7 +17,9 @@ fc1_neurons = 256
 fc1_weights = 50
 
 fc2_neurons = 128
-output_neurons = 4
+
+maximum_faces = 100
+output_neurons = 5 * maximum_faces
 
 
 def save_data():
@@ -34,8 +36,8 @@ def load_data():
 
 def serialize_data(data):
     return {
-        "w_cn1": [ cn1_weights.tolist() for cn1_weights in data["w_cn1"] ],
-        "w_cn2": [ cn2_weights.tolist() for cn2_weights in data["w_cn2"] ],
+        "k_cn1": [ cn1_weights.tolist() for cn1_weights in data["k_cn1"] ],
+        "k_cn2": [ cn2_weights.tolist() for cn2_weights in data["k_cn2"] ],
         "w_fc1": [ fc1_weights.tolist() for fc1_weights in data["w_fc1"] ],
         "w_fc2": [ fc2_weights.tolist() for fc2_weights in data["w_fc2"] ],
         "w_output": [ output_weights.tolist() for output_weights in data["w_output"] ],
@@ -50,8 +52,8 @@ def serialize_data(data):
 
 def deserialize_data(data):
     return {
-        "w_cn1": np.array(data["w_cn1"]),
-        "w_cn2": np.array(data["w_cn2"]),
+        "k_cn1": np.array(data["k_cn1"]),
+        "k_cn2": np.array(data["k_cn2"]),
         "w_fc1": np.array(data["w_fc1"]),
         "w_fc2": np.array(data["w_fc2"]),
         "w_output": np.array(data["w_output"]),

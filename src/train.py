@@ -11,7 +11,7 @@ def load_training_data(path: str):
     dataset = []
 
     with open(os.path.join(path, "image_info.txt"), mode='r') as f:
-        lines = f.readlines
+        lines = f.readlines()
 
     i = 0
     while i < len(lines):
@@ -21,8 +21,7 @@ def load_training_data(path: str):
         if len(image.shape) == 3:
             image = np.dot(image[...,:3], [0.299, 0.587, 0.114])
         aspect_ratio = image.shape[1] / image.shape[0]
-        dataset["aspect_ratios"].append(aspect_ratio)
-        image = algorithms.resize_image(image=image, target_size=model.image_size)
+        image = algorithms.resize_image(image=image, target_size=model.input_size)
         i += 1
 
         num_faces = int(lines[i].strip())
@@ -38,18 +37,34 @@ def load_training_data(path: str):
         dataset.append( {
             "image": image, 
             "original_aspect_ratio": aspect_ratio, 
-            "bounding_boxes": bounding_boxes
+            "bounding_boxes": np.array(bounding_boxes)
             } )
     
         return dataset
+    
+def display_prediction(image, predictions):
+    fig, ax = plt.subplots(1)
+    ax.imshow(image)
+
+    for (x, y, w, h, confidence) in predictions:
+        rect = patches.Rectangle((x, y), w, h, linewidth=2, edgecolor="r", facecolor="none")
+        ax.add_patch(rect)
+
+        ax.text((x, y), f"Confidence: {confidence:.2f}", color="red", fontsize=12, ha="center", va="center")
+
+    plt.show()
 
 
 
 if __name__ == '__main__':
     # Fetching training data
+    print("Loading training dataset!")
     dataset = load_training_data('training_data')
+    print("Dataset loaded.")
 
+    print("Loading model!")
     model.load_model()
+    print("Model loaded.")
     
     # Training
     for index, data in enumerate(dataset):
@@ -58,7 +73,11 @@ if __name__ == '__main__':
         image = data["image"]
         expected = data["bounding_boxes"]
         original_aspect_ratio = data["original_aspect_ratio"]
+
+        confidence_threshold = 0.8
         learning_rate = 0.005
+
+        print("Preprosessng done.")
 
         # First Convolution Layer
         cn1_activation = np.zeros((
@@ -70,6 +89,7 @@ if __name__ == '__main__':
             cn1_activation[i] = algorithms.convolve2d(image, model.model["w_cn1"][i]) + model.model["b_cn1"][i]
         cn1_activation = algorithms.max_pooling(cn1_activation)
 
+        print("First CN layer done.")
 
         # Second Convolution Layer
         cn2_activation = np.zeros((
@@ -81,54 +101,45 @@ if __name__ == '__main__':
             cn2_activation[i] = algorithms.convolve3d(algorithms.leaky_relu(cn1_activation), model.model["w_cn2"][i]) + model.model["b_cn2"][i]
         cn2_activation = algorithms.max_pooling(cn2_activation)
 
+        print("Second CN layer done.")
 
         # Flattened output for fully connected layer
         flattened_cn_output = algorithms.leaky_relu(cn2_activation).flatten()
 
 
         # First Fully Connected Layer
-        fc1_activation = np.zeros((model.fc1_neurons))
-        for i in range(model.fc1_neurons):
-            fc1_activation[i] = np.dot(flattened_cn_output, model.model["w_fc1"][i]) + model.model["b_fc1"][i]
-        
+        fc1_activation = np.dot(algorithms.leaky_relu(flattened_cn_output), model.model["w_fc1"]) + model.model["b_fc1"]
+        print("First FC layer done.")
 
         # Second Fully Connected Layer
-        fc2_activation = np.zeros((model.fc2_neurons))
-        for i in range(model.fc2_neurons):
-            fc2_activation[i] = np.dot(algorithms.leaky_relu(fc1_activation), model.model["w_fc2"][i]) + model.model["b_fc2"][i]
-
-        output_activation = np.zeros((model.output_neurons))
-        for i in range (model.output_neurons):
-            output_activation[i] = np.dot(algorithms.leaky_relu(fc2_activation), model.model["w_output"]) + model.model["b_output"][i]
-        output_activation = algorithms.leaky_relu(output_activation)
-
-        pred_x = int( output_activation[0] )
-        pred_y = int( output_activation[1] )
-        pred_w = int( output_activation[2] )
-        pred_h = int( output_activation[3] )
-
-        pred_rect = patches.Rectangle(xy=(pred_x, pred_y), width=pred_w, height=pred_h, linewidth=2, edgecolor="r", facecolor="none")
+        fc2_activation = np.dot(algorithms.leaky_relu(fc1_activation), model.model["w_fc2"]) + model.model["b_fc2"]
+        print("Second FC layer done.")
 
 
-        # Show prediction
-        fig, axs = plt.subplot(1, 2, figsize=(12, 6))
+        output_activation = np.zeros((
+            model.output_neurons,
+            5 # x, y, w, h, confidence
+            ))
+        
+        fc2_activation_leaky = algorithms.leaky_relu(fc2_activation)
+        for i in range(model.output_neurons):
+            output_activation[i] = np.dot(fc2_activation_leaky, model.model["w_output"]) + model.model["b_output"][i]
 
-        axs[0].imshow(image)
-        axs[0].axis("off")
+        output_bounding_boxes = algorithms.leaky_relu(output_activation[:, :4])
+        output_confidence = algorithms.sigmoid(output_activation[:, 4])
 
-        axs[1].imshow(image)
-        axs[1].add_patch(pred_rect)
-        axs[1].axis("off")
+        display_prediction(image, algorithms.leaky_relu(output_activation))
 
-        plt.tight_layout()
-        plt.show()
-
+        confidence_labels = algorithms.assign_ground_truth(output_bounding_boxes, expected)
 
         # Calculate error gradients
-        output_delta = algorithms.mean_squared_error_gradient(predicted=output_activation, expected=expected) * algorithms.leaky_relu_gradient(output_activation)
-        output_delta = output_delta.reshape((-1, 1))
+        confidence_delta = algorithms.binary_cross_entropy_gradient(confidence_labels, output_confidence)
 
-        fc2_delta = np.dot(model.model["w_fc2"].T, output_delta) * algorithms.leaky_relu_gradient(fc2_activation)
+        for index, box in enumerate(output_bounding_boxes):
+            if confidence_labels[index] == 0: continue
+            bounding_box_delta = algorithms.mean_squared_error_gradient(output_bounding_boxes, expected) * algorithms.leaky_relu_gradient(output_activation[:, :4])
+
+        fc2_delta = np.dot(model.model["w_fc2"].T, bounding_box_delta) * algorithms.leaky_relu_gradient(fc2_activation)
         fc2_delta = fc2_delta.reshape((-1, 1))
 
         fc1_delta = np.dot(model.model["w_fc1"].T, fc2_delta) * algorithms.leaky_relu_gradient(fc1_activation)
@@ -143,29 +154,22 @@ if __name__ == '__main__':
         for i in range(model.cn1_neurons):
             cn1_delta[i] = algorithms.convolve_gradient(fc2_delta, model.model["k_cn1"][i]) * algorithms.leaky_relu_gradient(cn1_activation)
 
+        # Adjust weights and biases
+        model.model["w_output"][:, :4] -= learning_rate * np.dot(fc2_activation, bounding_box_delta.T)
+        model.model["b_outout"][:, :4] -= learning_rate * np.sum(bounding_box_delta, acis=0)
 
-        # Adjust weights/kernels and biases
-        for i in range(model.output_neurons):
-            model.model["w_output"][i] -= learning_rate * np.outer(fc2_activation, output_delta)
-            model.model["b_output"][i] -= learning_rate * np.sum(output_delta)
+        model.model["w_output"][:, 4] -= learning_rate * np.dot(fc2_activation, confidence_delta)
+        model.model["b_output"][:, 4] -= learning_rate * np.sum(confidence_delta, acis=0)
 
-        for i in range(model.fc2_neurons):
-            model.model["w_fc2"][i] -= learning_rate * np.outer(fc1_activation, fc2_delta.T)
-            model.model["b_fc2"][i] -= learning_rate * np.sum(fc2_delta)
+        model.model["w_fc2"] -= learning_rate * np.dot(fc1_activation, fc2_delta.T)
+        model.model["b_fc2"] -= learning_rate * np.sum(fc2_delta, acis=0)
 
-        for i in range(model.fc1_neurons):
-            model.model["w_fc1"][i] -= learning_rate * np.outer(fc2_activation, fc1_delta.T)
-            model.model["b_fc1"][i] -= learning_rate * np.sum(fc1_delta)
+        model.model["w_cn2"] -= learning_rate * np.dot(cn1_activation, cn2_delta.T)
+        model.model["b_cn2"] -= learning_rate * np.sum(cn2_delta, acis=0)
 
-        for i in range(model.cn2_neurons):
-            model.model["k_cn2"][i] -= learning_rate * np.dot(cn1_activation, cn2_delta.T)
-            model.model["b_cn2"][i] -= learning_rate * np.sum(cn2_delta)
+        model.model["w_cn1"] -= learning_rate * np.dot(image, cn1_delta.T)
+        model.model["b_cn1"] -= learning_rate * np.sum(cn1_delta, acis=0)
 
-        for i in range(model.cn1_neurons):
-            model.model["k_cn1"][i] -= learning_rate * np.dot(image, cn1_delta.T)
-            model.model["b_cn1"][i] -= learning_rate * np.sum(cn1_delta)
-
-    
     model.save_data()
 
 
