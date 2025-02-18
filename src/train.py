@@ -50,7 +50,7 @@ if __name__ == '__main__':
     print("Dataset loaded.")
 
     print("Loading model!")
-    model.load_model()
+    model.load_model(create_new_model=True)
     print("Model loaded.")
     
     # Training
