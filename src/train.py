@@ -54,6 +54,11 @@ def load_training_data(path: str):
 
 
 if __name__ == '__main__':
+
+    # TODO: Vectorizations for convolution layers' forward pass and backpropagation.
+    # TODO: Transform model into object; better for reusability/modularity.
+    # TODO: Add batching.
+
     # Fetching training data
     dataset = load_training_data('training_data')
     print("Dataset loaded.")
