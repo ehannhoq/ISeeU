@@ -175,3 +175,4 @@ cython_debug/
 
 # Training data
 training_data/
+model_weights.npz

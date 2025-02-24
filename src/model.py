@@ -12,25 +12,23 @@ cn1_neurons = 16
 cn1_kernel_shape = (3, 3)
 
 cn2_neurons = 32
-cn2_kernel_shape = (cn1_neurons, 3, 3)
+cn2_kernel_shape = (cn1_neurons, 5, 5)
 
 fc1_neurons = 256
-fc1_weights = 50
-
 fc2_neurons = 128
 
-maximum_faces = 100
+maximum_faces = 25
 output_neurons = 5 * maximum_faces
 
 
 def save_data():
     global model
-    np.savez_compressed("src/model.npz", **model)
+    np.savez_compressed("src/model_weights.npz", **model)
 
 
 def load_data():
     global model
-    loaded = np.load("src/model.npz", allow_pickle=True)
+    loaded = np.load("src/model_weights.npz", allow_pickle=True)
     model.update(loaded)
         
 def new_model():
@@ -42,8 +40,11 @@ def new_model():
     output_height_cn1 = input_size[0] - cn1_kernel_shape[0]
     output_width_cn1 = input_size[1] - cn1_kernel_shape[0]
 
-    output_height_cn2 = output_height_cn1 - cn2_kernel_shape[0]
-    output_width_cn2 = output_width_cn1 - cn2_kernel_shape[1]
+    output_height_cn1 = output_height_cn1 // 2
+    output_width_cn1 = output_width_cn1 // 2
+
+    output_height_cn2 = output_height_cn1 - cn2_kernel_shape[1]
+    output_width_cn2 = output_width_cn1 - cn2_kernel_shape[2]
 
     output_height_cn2 = output_height_cn2 // 2
     output_width_cn2 = output_width_cn2 // 2
@@ -82,8 +83,8 @@ def new_model():
 def load_model(create_new_model: bool):
     global model
 
-    if os.path.exists("src/model.npz"):
-        load_model()
+    if os.path.exists("src/model_weights.npz"):
+        load_data()
     elif create_new_model:
         new_model()
     else:
@@ -97,6 +98,6 @@ def display_prediction(image, predictions):
     for (x, y, w, h, confidence) in predictions:
         rect = patches.Rectangle((x, y), w, h, linewidth=2, edgecolor="r", facecolor="none")
         ax.add_patch(rect)
-
-        ax.text((x, y), f"Confidence: {confidence:.2f}", color="red", fontsize=12, ha="center", va="center")
+        
+        ax.text(x=x, y=y, s=f"Confidence: {confidence:.2f}", color="red", fontsize=12, ha="center", va="center")
     plt.show()

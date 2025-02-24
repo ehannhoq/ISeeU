@@ -42,28 +42,55 @@ def convolve3d(input: np.ndarray, kernel: np.ndarray) -> np.ndarray:
 
 
 def convolve_gradient(error_gradient: np.ndarray, kernel: np.ndarray) -> np.ndarray:
-    assert len(kernel.shape) == len(error_gradient.shape), "Kernel and error gradient dimension mismatch"
-
-    error_height, error_width = error_gradient.shape
     kernel_height, kernel_width = kernel.shape
+    error_gradient = reverse_max_pooling(error_gradient, pool_size=2)
+    error_gradient_height, error_gradient_width = error_gradient.shape
 
-    output_width = error_width + kernel_width - 1
-    output_height = error_height + kernel_height - 1
+    output_height = error_gradient_height + kernel_height + 1
+    output_width = error_gradient_width + kernel_width + 1
+
+    output = np.zeros((output_height, output_width), dtype=float)   
+
+    for y in range(error_gradient_height):
+        for x in range(error_gradient_width):
+            output[y:y + kernel_height, x:x + kernel_width] += (
+                error_gradient[y, x] * kernel
+            )
+
+    return output
+
+def reverse_max_pooling(input:np.ndarray, pool_size: int = 2):
+    input_height, input_width = input.shape
+    output_height = input_height * pool_size
+    output_width = input_width * pool_size
 
     output = np.zeros((output_height, output_width), dtype=float)
 
     for y in range(output_height):
         for x in range(output_width):
-            output[y:y + kernel_height, x:x + kernel_height] += error_gradient[y, x] * kernel
+            output[y, x] = np.max(input[y // pool_size, x // pool_size])
 
     return output
 
+
+
+def compute_kernel_gradient(input_activation: np.ndarray, error_gradient: np.ndarray, kernel_size: tuple):
+    kernel_height, kernel_width = kernel_size
+    gradient = np.zeros((kernel_height, kernel_width))
+
+    for i in range(kernel_height):
+        for j in range(kernel_width):
+            gradient[i, j] = np.sum(input_activation[i:i+error_gradient.shape[0], j:j+error_gradient.shape[1]] * error_gradient)
+
+    return gradient
+    
 
 def leaky_relu(input, alpha: float = 0.1):
     return np.where(input > 0, input, alpha * input)
 
 def sigmoid(input):
-    return 1 / 1 + np.pow(np.e, -input)
+    input = np.clip(input, -500, 500)
+    return 1 / (1 + np.exp(-input))
 
 
 def max_pooling(input: np.ndarray, size: int = 2, stride: int = 2) -> np.ndarray:
@@ -90,10 +117,8 @@ def mean_squared_error_gradient(predicted: np.ndarray, expected: np.ndarray) -> 
 def leaky_relu_gradient(input, alpha: float = 0.1):
     return np.where(input > 0, 1, alpha)    
 
-def sigmoid_gradient(input):
-    pass
 
-def iou(box1, box2):
+def iou(box1, box2):    
     x1, y1, w1, h1 = box1
     x2, y2, w2, h2 = box2
 
@@ -118,8 +143,8 @@ def assign_ground_truth(predicted_boxes, actual_boxes, iou_threshold = 0.5):
     for predicted in predicted_boxes:
         max_iou = 0
         for actual in actual_boxes:
-            iou = iou(predicted, actual)
-            max_iou = max(iou, max_iou)
+            current_iou = iou(predicted, actual)
+            max_iou = max(current_iou, max_iou)
 
         if max_iou > iou_threshold:
             confidence_labels.append(1)
@@ -130,15 +155,24 @@ def assign_ground_truth(predicted_boxes, actual_boxes, iou_threshold = 0.5):
 
 
 def binary_cross_entropy_gradient(ground_truth, predicted):
-    return ( -ground_truth / predicted ) + ( (1 - ground_truth) / (1 - predicted) )
+    output = []
+    epislon = 1e-10
+
+    for i in range(len(ground_truth)):
+        output.append( np.where(ground_truth[i] == 1, -1 / predicted[i] + epislon, 1 / (1 - predicted[i] + epislon)) )
+
+    return np.array(output)
 
 
 def resize_image(image: np.ndarray, target_size: tuple) -> np.ndarray:
     current_height, current_width = image.shape
     target_height, target_width = target_size
+
+    new_height = target_height
+    new_height = target_width
     
-    if current_height > target_height or current_width < target_width:
-    
+    if current_height > target_height or current_width > target_width:
+
         if current_width > current_height:
             new_width = target_width
             aspect_ratio = current_height / current_width
@@ -148,9 +182,11 @@ def resize_image(image: np.ndarray, target_size: tuple) -> np.ndarray:
             new_height = target_height
             new_width = int(aspect_ratio * new_height)
             
+    if new_height == 0 or new_width == 0:
+        raise Exception("Calculated new height or width is 0.")
 
     resized_image = cv.resize(src=image, dsize=(new_width, new_height))
 
     output = np.zeros(target_size, dtype=image.dtype)
     output[ 0:resized_image.shape[0], 0:resized_image.shape[1] ] = resized_image
-    return output
+    return (output, new_width / new_height)
