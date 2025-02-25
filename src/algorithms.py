@@ -1,4 +1,6 @@
+import os
 import numpy as np
+import matplotlib.image as mpimg
 import cv2 as cv
 
 def convolve2d(input: np.ndarray, kernel: np.ndarray) -> np.ndarray:
@@ -190,3 +192,45 @@ def resize_image(image: np.ndarray, target_size: tuple) -> np.ndarray:
     output = np.zeros(target_size, dtype=image.dtype)
     output[ 0:resized_image.shape[0], 0:resized_image.shape[1] ] = resized_image
     return (output, new_width / new_height)
+
+
+def load_wider_data_set(imageset_master_path:str, annotation_file_path:str, batch_size:int, start_index:int = 0):
+    dataset = []
+
+    with open(annotation_file_path, mode='r') as f:
+        lines = f.readlines()
+    
+    i = start_index
+    images_loaded = 0
+    while i < len(lines) and images_loaded < batch_size:
+
+        image_name = lines[i].strip()
+        image_path = os.path.join(imageset_master_path, image_name)
+        original_image = mpimg.imread(image_path)
+        i += 1
+
+        num_faces = int(lines[i].strip())
+        i += 1
+
+        if num_faces == 0:
+            i += 1
+
+        bounding_boxes = []
+        for _ in range(num_faces):
+            bbox_info = list(map(int, lines[i].split()))
+            x, y, w, h = bbox_info[:4]
+            bounding_boxes.append( (x, y, w, h) )
+            i += 1
+
+        dataset.append( {
+            "image": original_image,
+            "bounding_boxes": np.array(bounding_boxes)
+            } )
+
+        images_loaded += 1
+        print(f"\rLoaded image {i} | {images_loaded}/{batch_size}", end="")
+    
+
+    end_index = i if i != len(lines) - 1 else -1
+    print("")
+    return dataset, end_index
