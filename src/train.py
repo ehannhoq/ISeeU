@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
     # Fetching training data
     dataset = load_training_data('training_data')
-    print("Dataset loaded.")
+    print("\nDataset loaded.")
 
     print("Loading model...")
     model.load_model(create_new_model=True)
@@ -148,11 +148,11 @@ if __name__ == '__main__':
         for index, box in enumerate(output_bounding_boxes):
             if confidence_labels[index] == 0: continue
             bounding_box_delta[index] = (
-                algorithms.mean_squared_error_gradient(output_bounding_boxes, expected)
-                * algorithms.leaky_relu_gradient(output_activation[:, :4])
+                algorithms.mean_squared_error_gradient(output_bounding_boxes[index], expected[index])
+                * algorithms.leaky_relu_gradient(output_activation[index, :4])
             )
         if np.sum(confidence_labels) == 0:
-            bounding_box_delta = np.zeros_like(output_bounding_boxes)
+            bounding_box_delta = 1e-4 * np.ones_like(output_bounding_boxes)
 
         output_delta = np.zeros_like(output_activation)
         output_delta[:, :4] = bounding_box_delta
@@ -195,13 +195,13 @@ if __name__ == '__main__':
         print("CN1 gradient calculated.")
 
         # Adjust weights and biases
-        model.model["w_output"] -= learning_rate * output_delta_flattened
+        model.model["w_output"] -= learning_rate * np.dot(output_delta_flattened, output_activation.flatten())
         model.model["b_output"] -= learning_rate * np.sum(output_delta_flattened)
 
-        model.model["w_fc2"] -= learning_rate * fc2_delta
+        model.model["w_fc2"] -= learning_rate * np.dot(fc2_delta, fc2_activation.flatten())
         model.model["b_fc2"] -= learning_rate * np.sum(fc2_delta)
 
-        model.model["w_fc1"] -= learning_rate * fc1_delta
+        model.model["w_fc1"] -= learning_rate * np.dot(fc1_delta, fc1_activation.flatten())
         model.model["b_fc1"] -= learning_rate * np.sum(fc1_delta)
 
         model.model["k_cn2"] -= learning_rate * w_cn2_delta
