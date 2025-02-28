@@ -3,86 +3,58 @@ import numpy as np
 import matplotlib.image as mpimg
 import cv2 as cv
 
-def convolve2d(input: np.ndarray, kernel: np.ndarray) -> np.ndarray:
-    assert len(kernel.shape) == len(input.shape), "Kernel and input dimension mismatch"
+import model
 
-    input_height, input_width = input.shape
-    kernel_height, kernel_width = kernel.shape
+def convolve(input: np.ndarray, kernel: np.ndarray, padding: int = 0, stride: int = 1) -> np.ndarray:
+    batch_size, _, input_height, input_width = input.shape
+    output_channels, _, kernel_height, kernel_width = kernel.shape
 
-    output_width = input_width - kernel_width
-    output_height = input_height - kernel_height
-    activation = np.zeros((output_height, output_width), dtype=float)
+    input = np.pad(input, ((0, 0), (0, 0), (padding, padding), (padding, padding)), mode='constant', constant_values=0)
 
-    for y in range(output_height):
-        for x in range(output_width):
-            window = input[y:y + kernel_height, x:x + kernel_width]
-            activation[y, x] = np.sum(window * kernel)
-    
-    return activation
+    output_width = (input_width + 2 * padding - kernel_width) // stride + 1
+    output_height = (input_height + 2 * padding - kernel_height) // stride + 1
 
-
-def convolve3d(input: np.ndarray, kernel: np.ndarray) -> np.ndarray:
-    assert len(kernel.shape) == len(input.shape), "Kernel and input dimension mismatch"
-
-    input_depth, input_height, input_width = input.shape
-    kernel_depth, kernel_height, kernel_width = kernel.shape
-
-    assert kernel_depth == input_depth, "Kernel and input shape mismatch"
-
-    output_width = input_width - kernel_width
-    output_height = input_height - kernel_height
-
-    output = np.zeros((output_height, output_width), dtype=float)
-
+    output = np.zeros((batch_size, output_channels, output_height, output_width))
 
     for y in range(output_height):
         for x in range(output_width):
-            cube = input[:, y:y + kernel_height, x:x + kernel_width]
-            output[y, x] = np.sum(cube * kernel)
+            output[:, :, y, x] = np.tensordot(
+                input[:, :, y * stride:y * stride + kernel_height, x * stride:x * stride + kernel_width], kernel, axes=([1, 2, 3], [1, 2, 3])
+            )
 
     return output
 
 
 def convolve_gradient(error_gradient: np.ndarray, kernel: np.ndarray) -> np.ndarray:
-    kernel_height, kernel_width = kernel.shape
     error_gradient = reverse_max_pooling(error_gradient, pool_size=2)
-    error_gradient_height, error_gradient_width = error_gradient.shape
+    batch_size, _, error_gradient_height, error_gradient_width = error_gradient.shape
+    _, cn2_channels, kernel_height, kernel_width = kernel.shape
+    
+    gradient = np.zeros((batch_size, cn2_channels, kernel_height, kernel_width))
+    for b in range(batch_size):
+        for cn2 in range(cn2_channels):
+            for y in range(error_gradient_height - kernel_height + 1):
+                for x in range(error_gradient_width - kernel_width + 1):
+                    print(error_gradient[b, :, y:y + kernel_height, x:x + kernel_width].shape)
+                    print(kernel[:, cn2].shape)
 
-    output_height = error_gradient_height + kernel_height + 1
-    output_width = error_gradient_width + kernel_width + 1
-
-    output = np.zeros((output_height, output_width), dtype=float)   
-
-    for y in range(error_gradient_height):
-        for x in range(error_gradient_width):
-            output[y:y + kernel_height, x:x + kernel_width] += (
-                error_gradient[y, x] * kernel
-            )
-
-    return output
-
-def reverse_max_pooling(input:np.ndarray, pool_size: int = 2):
-    input_height, input_width = input.shape
-    output_height = input_height * pool_size
-    output_width = input_width * pool_size
-
-    output = np.zeros((output_height, output_width), dtype=float)
-
-    for y in range(output_height):
-        for x in range(output_width):
-            output[y, x] = np.max(input[y // pool_size, x // pool_size])
-
-    return output
+                    gradient[b] = np.tensordot(
+                        error_gradient[b, :, y:y + kernel_height, x:x + kernel_width], kernel[:, cn2], axes=([0, 1, 2], [0, 1, 2])
+                    )
+                    
+    return gradient
 
 
+def kernel_gradient(input_activation: np.ndarray, error_gradient: np.ndarray, kernel_size: tuple):
+    _, input_activation_channels, _, _ = input_activation.shape
+    _, error_gradient_channels, error_gradient_height, error_gradient_width = error_gradient.shape
+    _, _, kernel_height, kernel_width = kernel_size
+    gradient = np.zeros((error_gradient_channels, input_activation_channels, kernel_height, kernel_width))
 
-def compute_kernel_gradient(input_activation: np.ndarray, error_gradient: np.ndarray, kernel_size: tuple):
-    kernel_height, kernel_width = kernel_size
-    gradient = np.zeros((kernel_height, kernel_width))
-
-    for i in range(kernel_height):
-        for j in range(kernel_width):
-            gradient[i, j] = np.sum(input_activation[i:i+error_gradient.shape[0], j:j+error_gradient.shape[1]] * error_gradient)
+    for y in range(kernel_height):
+        for x in range(kernel_width):
+            window = input_activation[:, :, y:y + error_gradient_height, x:x + error_gradient_width]
+            gradient[:, :, y, x] = np.sum(window[:, None, :, :, :] * error_gradient[:, :, None, :, :], axis=(0, 3, 4))
 
     return gradient
     
@@ -90,35 +62,45 @@ def compute_kernel_gradient(input_activation: np.ndarray, error_gradient: np.nda
 def leaky_relu(input, alpha: float = 0.1):
     return np.where(input > 0, input, alpha * input)
 
+
+def leaky_relu_gradient(input, alpha: float = 0.1):
+    return np.where(input > 0, 1, alpha)    
+
+
 def sigmoid(input):
     input = np.clip(input, -500, 500)
     return 1 / (1 + np.exp(-input))
 
 
 def max_pooling(input: np.ndarray, size: int = 2, stride: int = 2) -> np.ndarray:
-    input_depth, input_height, input_width = input.shape
-
+    batch_size, channels, input_height, input_width = input.shape
     output_height = (input_height - size) // stride + 1
     output_width = (input_width - size) // stride + 1
 
-    output = np.zeros((input_depth, output_height, output_width), dtype=float)
-
-    for d in range(input_depth):
-        for y in range(output_height):
-            for x in range(output_width):
-                window = input[ d, y * stride:y * stride + size, x * stride:x * stride + size ]
-                output[d, y, x] = np.max(window)
+    output = input.reshape(
+        (batch_size, channels,
+        output_height, stride, 
+        output_width, stride)
+    )
+    output = np.max(output, axis=(3, 5))
     
     return output
 
+def reverse_max_pooling(input:np.ndarray, pool_size: int = 2):
+    return np.repeat(np.repeat(input, pool_size, axis=2), pool_size, axis=3)
     
-def mean_squared_error_gradient(predicted: np.ndarray, expected: np.ndarray) -> np.ndarray:
-    return 2 * (predicted - expected)
+def mean_squared_error_gradient(predicted: np.ndarray, expected: list) -> np.ndarray:
+    batch_size, max_boxes, _ = predicted.shape
 
+    max_faces = max(len(faces) for faces in expected)
 
-def leaky_relu_gradient(input, alpha: float = 0.1):
-    return np.where(input > 0, 1, alpha)    
+    expected_resized = np.zeros((batch_size, max_boxes, 4))
 
+    for batch in range(batch_size):
+        num_faces = len(expected[batch])
+        expected_resized[batch, :num_faces, :] = np.array(expected[batch])
+
+    return 2 * (predicted - expected_resized)
 
 def iou(box1, box2):    
     x1, y1, w1, h1 = box1
@@ -134,37 +116,34 @@ def iou(box1, box2):
 
     intersection_area = w_int * h_int
 
-    union_area = w1 * h1 + w2 * h2
+    union_area = (w1 * h1 + w2 * h2) - intersection_area
 
     return intersection_area / union_area if union_area != 0 else 0
 
 
-def assign_ground_truth(predicted_boxes, actual_boxes, iou_threshold = 0.5):
-    confidence_labels = []
+def assign_ground_truth(predicted, expected, iou_threshold = 0.5):
+    batch_size, _, _ = predicted.shape
 
-    for predicted in predicted_boxes:
-        max_iou = 0
-        for actual in actual_boxes:
-            current_iou = iou(predicted, actual)
-            max_iou = max(current_iou, max_iou)
+    output = np.zeros((batch_size, predicted.shape[1]))
 
-        if max_iou > iou_threshold:
-            confidence_labels.append(1)
-        else:
-            confidence_labels.append(0)
+    for b in range(batch_size):
+        for p_box in predicted[b]:
+            max_iou = 0
+            for e_box in expected[b]:
+                iou_value = iou(p_box, e_box)
+                if iou_value > max_iou:
+                    max_iou = iou_value
 
-    return confidence_labels
+            if max_iou > iou_threshold:
+                output[b] = 1
+
+    return output
 
 
 def binary_cross_entropy_gradient(ground_truth, predicted):
-    output = []
     epislon = 1e-10
-
-    for i in range(len(ground_truth)):
-        output.append( np.where(ground_truth[i] == 1, -1 / predicted[i] + epislon, 1 / (1 - predicted[i] + epislon)) )
-
-    return np.array(output)
-
+    return -(ground_truth / (predicted + epislon) - (1 - ground_truth) / (1 - predicted + epislon))
+   
 
 def resize_image(image: np.ndarray, target_size: tuple) -> np.ndarray:
     current_height, current_width = image.shape
@@ -194,43 +173,55 @@ def resize_image(image: np.ndarray, target_size: tuple) -> np.ndarray:
     return (output, new_width / new_height)
 
 
-def load_wider_data_set(imageset_master_path:str, annotation_file_path:str, batch_size:int, start_index:int = 0):
-    dataset = []
-
+def load_wider_data_set(imageset_master_path:str, annotation_file_path:str, target_size:tuple ,batch_size:int, max_faces:int, start_index:int = 0):
     with open(annotation_file_path, mode='r') as f:
         lines = f.readlines()
     
-    i = start_index
-    images_loaded = 0
-    while i < len(lines) and images_loaded < batch_size:
+    images = np.zeros((batch_size, 1, target_size[0], target_size[1]))
+    expected = []
 
-        image_name = lines[i].strip()
+    i = 0
+    line_index = start_index
+    while line_index < len(lines) and i < batch_size:
+        image_name = lines[line_index].strip()
         image_path = os.path.join(imageset_master_path, image_name)
-        original_image = mpimg.imread(image_path)
-        i += 1
+        image = mpimg.imread(image_path)
 
-        num_faces = int(lines[i].strip())
-        i += 1
+        if len(image.shape) == 3:
+            image = np.dot(image[...,:3], [0.299, 0.587, 0.114])
+
+        image, _ = resize_image(image=image, target_size=target_size)
+        images[i, :] = image
+        
+        line_index += 1
+
+        num_faces = int(lines[line_index].strip())
+
+        if num_faces > max_faces:
+            line_index += 1 + num_faces
+            continue
+
+        line_index += 1
 
         if num_faces == 0:
-            i += 1
+            line_index += 1
 
-        bounding_boxes = []
-        for _ in range(num_faces):
-            bbox_info = list(map(int, lines[i].split()))
+        bounding_boxes = np.zeros((num_faces, 4))
+
+        for j in range(num_faces):
+            bbox_info = list(map(int, lines[line_index].split()))
             x, y, w, h = bbox_info[:4]
-            bounding_boxes.append( (x, y, w, h) )
-            i += 1
+            bounding_boxes[j] = np.array([x, y, w, h])
+            line_index += 1
 
-        dataset.append( {
-            "image": original_image,
-            "bounding_boxes": np.array(bounding_boxes)
-            } )
+        expected.append(bounding_boxes)
 
-        images_loaded += 1
-        print(f"\rLoaded image {i} | {images_loaded}/{batch_size}", end="")
+        i += 1
+        print(f"\rImage {i}/{batch_size} loaded", end="")
     
 
-    end_index = i if i != len(lines) - 1 else -1
+    end_index = line_index if line_index < len(lines) else -1
     print("")
-    return dataset, end_index
+
+    return images, expected, end_index
+
