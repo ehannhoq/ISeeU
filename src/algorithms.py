@@ -119,20 +119,22 @@ def iou(box1, box2):
 
 
 def assign_ground_truth(predicted, expected, iou_threshold = 0.5):
-    batch_size, _, _ = predicted.shape
+    batch_size, predicted_num_faces, _ = predicted.shape
 
-    output = np.zeros((batch_size, predicted.shape[1]))
+    output = np.zeros((batch_size, predicted_num_faces))
 
     for b in range(batch_size):
         for p_box in predicted[b]:
-            max_iou = 0
+            best_iou = 0
             for e_box in expected[b]:
-                iou_value = iou(p_box, e_box)
-                if iou_value > max_iou:
-                    max_iou = iou_value
+                current_iou = iou(p_box, e_box)
+                if current_iou > best_iou:
+                    best_iou = current_iou
 
-            if max_iou > iou_threshold:
+            if best_iou > iou_threshold:
                 output[b] = 1
+
+        print(f"Batch: {b + 1}: {output[b]}")
 
     return output
 
