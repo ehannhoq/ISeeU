@@ -35,9 +35,6 @@ def convolve_gradient(error_gradient: np.ndarray, kernel: np.ndarray) -> np.ndar
         for cn2 in range(cn2_channels):
             for y in range(error_gradient_height - kernel_height + 1):
                 for x in range(error_gradient_width - kernel_width + 1):
-                    print(error_gradient[b, :, y:y + kernel_height, x:x + kernel_width].shape)
-                    print(kernel[:, cn2].shape)
-
                     gradient[b] = np.tensordot(
                         error_gradient[b, :, y:y + kernel_height, x:x + kernel_width], kernel[:, cn2], axes=([0, 1, 2], [0, 1, 2])
                     )
