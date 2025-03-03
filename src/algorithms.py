@@ -124,17 +124,30 @@ def assign_ground_truth(predicted, expected, iou_threshold = 0.5):
     output = np.zeros((batch_size, predicted_num_faces))
 
     for b in range(batch_size):
+        tp, fp, fn = 0, 0, 0
+        matched_gt = np.zeros(len(expected[b]))
+
         for p_box in predicted[b]:
             best_iou = 0
-            for e_box in expected[b]:
+            best_gt_index = -1
+
+            for e_index, e_box in enumerate(expected[b]):
                 current_iou = iou(p_box, e_box)
                 if current_iou > best_iou:
                     best_iou = current_iou
+                    best_gt_index = e_index
 
             if best_iou > iou_threshold:
                 output[b] = 1
+                matched_gt[best_gt_index] = 1
+                tp += 1
+            else:
+                fp += 1
+        
+        fn = np.sum(1 - matched_gt)
 
-        print(f"Batch: {b + 1}: {output[b]}")
+
+        print(f"Batch: {b + 1}: TP: {tp}, FP: {fp}, FN: {fn}")
 
     return output
 
