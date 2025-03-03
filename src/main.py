@@ -6,8 +6,6 @@ if __name__ == '__main__':
 
     neural_network = model.ISeeU(confidence_threshold=0.8, learning_rate=0.005, show_debug=True)
 
-    # TODO: Print out each predicted box's IOU and ground truth; ideally show if each box is a true/false positive/negative.
-
     dataset_index = 0
     batch_size = 32
     epoch = 1000
