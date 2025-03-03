@@ -202,7 +202,7 @@ def load_wider_data_set(imageset_master_path:str, annotation_file_path:str, targ
         if len(image.shape) == 3:
             image = np.dot(image[...,:3], [0.299, 0.587, 0.114])
 
-        image, _ = resize_image(image=image, target_size=target_size)
+        image, aspect_ratio = resize_image(image=image, target_size=target_size)
         images[i, :] = image
         
         line_index += 1
@@ -224,6 +224,7 @@ def load_wider_data_set(imageset_master_path:str, annotation_file_path:str, targ
             bbox_info = list(map(int, lines[line_index].split()))
             x, y, w, h = bbox_info[:4]
             bounding_boxes[j] = np.array([x, y, w, h])
+            bounding_boxes[j] /= aspect_ratio
             line_index += 1
 
         expected.append(bounding_boxes)
