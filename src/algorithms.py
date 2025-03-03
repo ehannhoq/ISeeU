@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
 import cv2 as cv
 
 import model
@@ -122,6 +123,7 @@ def assign_ground_truth(predicted, expected, iou_threshold = 0.5):
     batch_size, predicted_num_faces, _ = predicted.shape
 
     output = np.zeros((batch_size, predicted_num_faces))
+    tp_list, fp_list, fn_list = [], [], []
 
     for b in range(batch_size):
         tp, fp, fn = 0, 0, 0
@@ -146,10 +148,32 @@ def assign_ground_truth(predicted, expected, iou_threshold = 0.5):
         
         fn = np.sum(1 - matched_gt)
 
+        tp_list.append(tp)
+        fp_list.append(fp)
+        fn_list.append(fn)
 
-        print(f"Batch: {b + 1}: TP: {tp}, FP: {fp}, FN: {fn}")
+    plot_metrics(tp_list, fp_list, fn_list)
 
     return output
+
+
+def plot_metrics(tp_list, fp_list, fn_list):
+    plt.ion()
+    plt.clf()
+
+    batches = range(1, len(tp_list) + 1)
+    
+    plt.bar(batches, tp_list, color='green', label='True Positives')
+    plt.bar(batches, fp_list, bottom=tp_list, color='red', label='False Positives')
+    plt.bar(batches, fn_list, bottom=np.array(tp_list) + np.array(fp_list), color='blue', label='False Negatives')
+
+    plt.xlabel("Batch")
+    plt.ylabel("Count")
+    plt.title("Detection Metrics per Batch")
+    plt.legend()
+    
+    plt.pause(0.1)
+    plt.show(block=False)
 
 
 def binary_cross_entropy_gradient(ground_truth, predicted):

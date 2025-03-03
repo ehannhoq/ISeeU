@@ -10,9 +10,10 @@ if __name__ == '__main__':
     batch_size = 32
     epoch = 1000
     for i in range(epoch):
+        print("Epoch:", i + 1)
         input, expected, dataset_index = algorithms.load_wider_data_set(imageset_master_path='training_data', annotation_file_path='training_data/image_info.txt', target_size=neural_network.input_size, batch_size=batch_size, max_faces=10, start_index=dataset_index)
         print("Index:", dataset_index)
-        print("Epoch:", i + 1)
+        
         neural_network.train(input=input, expected=expected)
 
         

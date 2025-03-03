@@ -2,6 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import sys
 
 import algorithms
 
@@ -26,13 +27,13 @@ class ISeeU:
         self.convStride = 1
 
         if os.path.exists("src/model_weights.npz"):
-            debug_message("Loading weights...", self.show_debug)
+            debug_message("\rLoading weights...", self.show_debug)
             self.load_weights()
-            debug_message("Weights loaded.", self.show_debug)
+            debug_message("\rWeights loaded.\n", self.show_debug)
         else:
-            debug_message("Generating new weights...", self.show_debug)
+            debug_message("\rGenerating new weights...", self.show_debug)
             self.new_weights()
-            debug_message("Weights generated.", self.show_debug)
+            debug_message("\rWeights generated.\n", self.show_debug)
 
     def new_weights(self):
         k_cn1 = np.random.randn(self.cn1_neurons, 1, self.cn1_kernel_shape[0], self.cn1_kernel_shape[1])
@@ -123,38 +124,38 @@ class ISeeU:
 
     def forward_pass(self, input, inference:bool = False):
         # First Convolution Layer
-        debug_message("First CN layer...", self.show_debug)
+        debug_message("\rFirst CN layer...", self.show_debug)
         cn1_activation = algorithms.convolve(input, self.model["k_cn1"], padding=self.convPadding, stride=self.convStride)
         cn1_activation = algorithms.max_pooling(cn1_activation)
-        debug_message("First CN layer done.", self.show_debug)
+        debug_message("\rFirst CN layer done.", self.show_debug)
 
         # Second Convolution Layer
-        debug_message("Second CN layer...", self.show_debug)
+        debug_message("\rSecond CN layer...", self.show_debug)
         cn2_activation = algorithms.convolve(cn1_activation, self.model["k_cn2"], padding=self.convPadding + 1, stride=self.convStride)
         cn2_activation = algorithms.max_pooling(cn2_activation)
 
         # Flattened output for fully connected layer
         flattened_cn_output = algorithms.leaky_relu(cn2_activation)
         flattened_cn_output = np.reshape(flattened_cn_output, (cn2_activation.shape[0], -1))
-        debug_message("Second CN layer done.", self.show_debug)
+        debug_message("\rSecond CN layer done.", self.show_debug)
 
         # First Fully Connected Layer
-        debug_message("First FC layer...", self.show_debug)
+        debug_message("\rFirst FC layer...", self.show_debug)
         fc1_activation = np.dot(flattened_cn_output, self.model["w_fc1"]) + self.model["b_fc1"]
         debug_message("First FC layer done.", self.show_debug)
 
 
         # Second Fully Connected Layer
-        debug_message("Second FC layer...", self.show_debug)
+        debug_message("\rSecond FC layer...", self.show_debug)
         fc2_activation = np.dot(algorithms.leaky_relu(fc1_activation), self.model["w_fc2"]) + self.model["b_fc2"]
-        debug_message("Second FC layer done.", self.show_debug)
+        debug_message("\rSecond FC layer done.", self.show_debug)
 
 
         # Output Layer
-        debug_message("Output layer...", self.show_debug)
+        debug_message("\rOutput layer...", self.show_debug)
         output_activation = np.dot(algorithms.leaky_relu(fc2_activation), self.model["w_output"]) + self.model["b_output"]
         output_activation = np.reshape(output_activation, (output_activation.shape[0], self.maximum_faces, 5))
-        debug_message("Output layer done.", self.show_debug)
+        debug_message("\rOutput layer done.", self.show_debug)
 
 
         # Predictions
@@ -181,7 +182,7 @@ class ISeeU:
         batch_size = input.shape[0]
         
         # Calculate error gradients
-        debug_message("Calculating output gradient...", self.show_debug)
+        debug_message("\rCalculating output gradient...", self.show_debug)
         confidence_labels = algorithms.assign_ground_truth(output_bounding_boxes, expected)
         confidence_delta = algorithms.binary_cross_entropy_gradient(confidence_labels, output_confidence)
 
@@ -193,34 +194,34 @@ class ISeeU:
         output_delta = np.zeros_like(output_activation)
         output_delta[:, :, :4] = bounding_box_delta
         output_delta[:, :, 4] = confidence_delta
-        debug_message("Output gradient done.", self.show_debug)
+        debug_message("\rOutput gradient done.", self.show_debug)
 
 
-        debug_message("Calculating FC2 gradient...", self.show_debug)
+        debug_message("\rCalculating FC2 gradient...", self.show_debug)
         output_delta = np.reshape(output_delta, (batch_size, -1))
         fc2_delta = np.dot(output_delta, self.model["w_output"].T) * algorithms.leaky_relu_gradient(fc2_activation)
         fc2_delta = fc2_delta.squeeze()
-        debug_message("FC2 gradient done.", self.show_debug)
+        debug_message("\rFC2 gradient done.", self.show_debug)
 
 
-        debug_message("Calculating FC1 gradient...", self.show_debug)
+        debug_message("\rCalculating FC1 gradient...", self.show_debug)
         fc1_delta = np.dot(fc2_delta, self.model["w_fc2"].T) * algorithms.leaky_relu_gradient(fc1_activation)
         fc1_delta = fc1_delta.squeeze()
-        debug_message("FC1 gradient done.", self.show_debug)
+        debug_message("\rFC1 gradient done.", self.show_debug)
 
 
-        debug_message("Calculating CN2 gradient...", self.show_debug)
+        debug_message("\rCalculating CN2 gradient...", self.show_debug)
         cn2_delta_flattened = np.dot(fc1_delta, self.model["w_fc1"].T)
         cn2_delta = cn2_delta_flattened.reshape(cn2_activation.shape)
         cn2_delta *= algorithms.leaky_relu_gradient(cn2_activation)
         w_cn2_delta = algorithms.kernel_gradient(cn1_activation, cn2_delta, self.model["k_cn2"].shape)
-        debug_message("CN2 gradient done.", self.show_debug)
+        debug_message("\rCN2 gradient done.", self.show_debug)
 
 
-        debug_message("Calculating CN1 gradient...", self.show_debug)
+        debug_message("\rCalculating CN1 gradient...", self.show_debug)
         cn1_delta = algorithms.convolve_gradient(cn2_delta, np.flip(self.model["k_cn2"], axis=(2, 3)))
         w_cn1_delta = algorithms.kernel_gradient(input, cn1_delta, self.model["k_cn1"].shape)
-        debug_message("CN1 gradient done.", self.show_debug)
+        debug_message("\rCN1 gradient done.", self.show_debug)
         
 
         # Adjust weights and biases
@@ -242,11 +243,12 @@ class ISeeU:
         self.model["b_cn1"] -= self.learning_rate * np.sum(cn1_delta)
 
             
-        debug_message("Weights adjusted.", self.show_debug)
+        debug_message("\rWeights adjusted.\n", self.show_debug)
 
 
 def debug_message(message:str, show:bool):
     if show:
-        print(message)
-
+        sys.stdout.write("\r" + " " * 100)
+        sys.stdout.write("\r" + message)
+        sys.stdout.flush()
 
