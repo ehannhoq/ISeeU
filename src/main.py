@@ -1,19 +1,35 @@
-import algorithms
-import model
+import iseeu
+import time
+from algorithms import load_wider_data_set
 
 
 if __name__ == '__main__':
+    model = iseeu.Model(
+        learning_rate=0.001,
+        confidence_threshold=0.8,
+        stride=1
+        )
+    
+    epoch = 0
+    i = 3
+    while i != -1 and epoch < 1:
+        print(f"Epoch: {epoch + 1}")
+        start_time = time.time()
 
-    neural_network = model.ISeeU(confidence_threshold=0.8, learning_rate=0.005, show_debug=True)
+        images, expected, i = load_wider_data_set(
+            imageset_master_path='training_data',
+            annotation_file_path='training_data/image_info.txt',
+            target_size=(500, 500),
+            batch_size=1,
+            max_faces=10,
+            start_index=i
+        )
 
-    dataset_index = 0
-    batch_size = 32
-    epoch = 1000
-    for i in range(epoch):
-        print("Epoch:", i + 1)
-        input, expected, dataset_index = algorithms.load_wider_data_set(imageset_master_path='training_data', annotation_file_path='training_data/image_info.txt', target_size=neural_network.input_size, batch_size=batch_size, max_faces=10, start_index=dataset_index)
-        print("Index:", dataset_index)
-        
-        neural_network.train(input=input, expected=expected)
+        model.train(
+            input=images,
+            expected=expected
+        )
 
-        
+        end_time = time.time()
+        print(f"Time elapsed for epoch {epoch + 1}: {(end_time - start_time):.2f} seconds")
+        epoch += 1
