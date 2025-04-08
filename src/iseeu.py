@@ -192,6 +192,26 @@ class Model:
         cn1_gradient = convolve_gradient(cn2_gradient, self.cn1_w, False)
         cn1_w_gradient = kernel_gradient(input, cn1_gradient, self.cn1_w.shape)
 
+        if self.show_debug:
+            print()
+            print(f"Average gradient in CN1_W: {np.mean(cn1_w_gradient)}")
+            print(f"Average gradient in CN2_W: {np.mean(cn2_w_gradient)}")
+            print(f"Average gradient in CN3_W: {np.mean(cn3_w_gradient)}")
+            print(f"Average gradient in CN4_W: {np.mean(cn4_w_gradient)}")
+            print(f"Average gradient in FC1_W: {np.mean(fc1_w_gradient)}")
+            print(f"Average gradient in FC2_W: {np.mean(fc2_w_gradient)}")
+            print(f"Average gradient in FC3_W: {np.mean(fc3_w_gradient)}")
+            print(f"Average gradient in OUTPUT_W: {np.mean(output_w_gradient)}")
+
+            print(f"Average gradient in CN1_B: {np.mean(cn1_gradient)}")
+            print(f"Average gradient in CN2_B: {np.mean(cn2_gradient)}")
+            print(f"Average gradient in CN3_B: {np.mean(cn3_gradient)}")
+            print(f"Average gradient in CN4_B: {np.mean(cn4_gradient)}")
+            print(f"Average gradient in FC1_B: {np.mean(fc1_gradient)}")
+            print(f"Average gradient in FC2_B: {np.mean(fc2_gradient)}")
+            print(f"Average gradient in FC3_B: {np.mean(fc3_gradient)}")
+            print(f"Average gradient in OUTPUT_B: {np.mean(output_gradient)}")
+            print()            
 
         self.cn1_w -= self.learning_rate * cn1_w_gradient
         self.cn2_w -= self.learning_rate * cn2_w_gradient

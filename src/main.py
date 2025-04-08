@@ -7,13 +7,14 @@ if __name__ == '__main__':
     model = iseeu.Model(
         learning_rate=0.001,
         confidence_threshold=0.8,
-        stride=1
+        stride=1,
+        show_debug=True
         )
     
     epoch = 0
-    i = 3
-    while i != -1 and epoch < 1:
-        print(f"Epoch: {epoch + 1}")
+    i = 0
+    while i != -1 and epoch > 1000:
+        print(f"Epoch: {epoch}")
         start_time = time.time()
 
         images, expected, i = load_wider_data_set(
