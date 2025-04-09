@@ -13,7 +13,7 @@ if __name__ == '__main__':
     
     epoch = 0
     i = 0
-    while i != -1 and epoch > 1000:
+    while i != -1 and epoch < 1000:
         print(f"Epoch: {epoch}")
         start_time = time.time()
 
