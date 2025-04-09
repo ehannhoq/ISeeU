@@ -241,10 +241,10 @@ class Model:
         self.output_w -= self.learning_rate * output_w_gradient
 
 
-        self.cn1_b -= self.learning_rate * np.sum(cn1_gradient, axis=(2, 3)).flatten()
-        self.cn2_b -= self.learning_rate * np.sum(cn2_gradient, axis=(2, 3)).flatten()
-        self.cn3_b -= self.learning_rate * np.sum(cn3_gradient, axis=(2, 3)).flatten()
-        self.cn4_b -= self.learning_rate * np.sum(cn4_gradient, axis=(2, 3)).flatten()
+        self.cn1_b -= self.learning_rate * np.sum(cn1_gradient, axis=(0, 2, 3)).T
+        self.cn2_b -= self.learning_rate * np.sum(cn2_gradient, axis=(0, 2, 3)).T
+        self.cn3_b -= self.learning_rate * np.sum(cn3_gradient, axis=(0, 2, 3)).T
+        self.cn4_b -= self.learning_rate * np.sum(cn4_gradient, axis=(0, 2, 3)).T
         self.fc1_b -= self.learning_rate * np.sum(fc1_gradient, axis=(0, 1))
         self.fc2_b -= self.learning_rate * np.sum(fc2_gradient, axis=(0, 1))
         self.fc3_b -= self.learning_rate * np.sum(fc3_gradient, axis=(0, 1))
