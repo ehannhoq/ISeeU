@@ -65,14 +65,18 @@ class Model:
         self.cn1_w = np.random.uniform(-0.01, 0.01, (self.cn1_neurons, 1, self.cn1_kernel_size, self.cn1_kernel_size)).astype(np.float32)
         self.cn1_b = np.zeros((self.cn1_neurons,), dtype=np.float32)
 
+
         self.cn2_w = np.random.uniform(-0.01, 0.01, (self.cn2_neurons, self.cn1_neurons, self.cn2_kernel_size, self.cn2_kernel_size)).astype(np.float32)
         self.cn2_b = np.zeros((self.cn2_neurons,), dtype=np.float32)
+
 
         self.cn3_w = np.random.uniform(-0.01, 0.01, (self.cn3_neurons, self.cn2_neurons, self.cn3_kernel_size, self.cn3_kernel_size)).astype(np.float32)
         self.cn3_b = np.zeros((self.cn3_neurons,), dtype=np.float32)
 
+
         self.cn4_w = np.random.uniform(-0.01, 0.01, (self.cn4_neurons, self.cn3_neurons, self.cn4_kernel_size, self.cn4_kernel_size)).astype(np.float32)
         self.cn4_b = np.zeros((self.cn4_neurons,), dtype=np.float32)
+
         
         self.fc1_w = np.random.uniform(-0.01, 0.01, (self.fc1_neurons, exp_fc1_input)).astype(np.float32)
         self.fc1_b = np.zeros((self.fc1_neurons,), dtype=np.float32)
@@ -100,13 +104,15 @@ class Model:
             stride=self.stride,
             padding=self.cn12_padding
             )
-
+        
         cn2_z = convolve(
             input=leaky_relu(cn1_z),
             filter=self.cn2_w,
             stride=self.stride,
             padding=self.cn12_padding
             )
+    
+    
         cn2_a = leaky_relu(cn2_z)
         cn2_a = max_pooling(cn2_a, pool_size=(2, 2))
 
@@ -123,7 +129,7 @@ class Model:
             stride=self.stride,
             padding=self.cn34_padding
             )
-        
+                
         cn4_a = leaky_relu(cn4_z)
         cn4_a = max_pooling(cn4_a, pool_size=(2, 2))
 
@@ -152,7 +158,7 @@ class Model:
         np.set_printoptions(precision=4, suppress=True)
 
         confidence_labels = assign_ground_truth(bounding_boxes, expected)
-        confidence_gradient = binary_cross_entropy_gradient(confidence, confidence_labels, expected)
+        confidence_gradient = binary_cross_entropy_gradient(confidence, confidence_labels, expected) * 0.1
 
         bounding_boxes_gradient = mse_gradient(bounding_boxes, expected) * leaky_relu_derivative(output_z[:, :, :4])
 
@@ -162,14 +168,11 @@ class Model:
         output_gradient = np.reshape(output_gradient, (batch_size, -1))
         output_w_gradient = np.dot(output_gradient.T, leaky_relu(fc3_z))
 
-
         fc3_gradient = np.dot(output_gradient, self.output_w) * leaky_relu_derivative(fc3_z)
         fc3_w_gradient = np.dot(fc3_gradient.T, leaky_relu(fc2_z))
 
-
         fc2_gradient = np.dot(fc3_gradient, self.fc3_w) * leaky_relu_derivative(fc2_z)
         fc2_w_gradient = np.dot(fc2_gradient.T, leaky_relu(fc1_z))
-
 
         fc1_gradient = np.dot(fc2_gradient, self.fc2_w) * leaky_relu_derivative(fc1_z)
         cn4_a = leaky_relu(cn4_z)
@@ -184,14 +187,29 @@ class Model:
         cn3_gradient = convolve_gradient(cn4_gradient, self.cn3_w, True)
         cn3_w_gradient = kernel_gradient(cn2_z, cn3_gradient, self.cn3_w.shape)
 
-
         cn2_gradient = convolve_gradient(cn3_gradient, self.cn2_w, False)
         cn2_w_gradient = kernel_gradient(cn1_z, cn2_gradient, self.cn2_w.shape)
 
-
         cn1_gradient = convolve_gradient(cn2_gradient, self.cn1_w, False)
         cn1_w_gradient = kernel_gradient(input, cn1_gradient, self.cn1_w.shape)
-
+        
+        output_gradient /= batch_size
+        output_w_gradient /= batch_size
+        fc3_gradient /= batch_size
+        fc3_w_gradient /= batch_size
+        fc2_gradient /= batch_size
+        fc2_w_gradient /= batch_size
+        fc1_gradient /= batch_size
+        fc1_w_gradient /= batch_size
+        cn4_gradient /= batch_size
+        cn4_w_gradient /= batch_size
+        cn3_gradient /= batch_size
+        cn3_w_gradient /= batch_size
+        cn2_gradient /= batch_size
+        cn2_w_gradient /= batch_size
+        cn1_gradient /= batch_size
+        cn1_w_gradient /= batch_size
+        
         if self.show_debug:
             print()
             print(f"Average gradient in CN1_W: {np.mean(cn1_w_gradient)}")
@@ -202,7 +220,7 @@ class Model:
             print(f"Average gradient in FC2_W: {np.mean(fc2_w_gradient)}")
             print(f"Average gradient in FC3_W: {np.mean(fc3_w_gradient)}")
             print(f"Average gradient in OUTPUT_W: {np.mean(output_w_gradient)}")
-
+            print()
             print(f"Average gradient in CN1_B: {np.mean(cn1_gradient)}")
             print(f"Average gradient in CN2_B: {np.mean(cn2_gradient)}")
             print(f"Average gradient in CN3_B: {np.mean(cn3_gradient)}")
@@ -211,7 +229,7 @@ class Model:
             print(f"Average gradient in FC2_B: {np.mean(fc2_gradient)}")
             print(f"Average gradient in FC3_B: {np.mean(fc3_gradient)}")
             print(f"Average gradient in OUTPUT_B: {np.mean(output_gradient)}")
-            print()            
+            print()
 
         self.cn1_w -= self.learning_rate * cn1_w_gradient
         self.cn2_w -= self.learning_rate * cn2_w_gradient
@@ -222,11 +240,12 @@ class Model:
         self.fc3_w -= self.learning_rate * fc3_w_gradient        
         self.output_w -= self.learning_rate * output_w_gradient
 
-        self.cn1_b -= self.learning_rate * np.sum(cn1_gradient)
-        self.cn2_b -= self.learning_rate * np.sum(cn2_gradient)
-        self.cn3_b -= self.learning_rate * np.sum(cn3_gradient)
-        self.cn4_b -= self.learning_rate * np.sum(cn4_gradient)
-        self.fc1_b -= self.learning_rate * np.sum(fc1_gradient)
-        self.fc2_b -= self.learning_rate * np.sum(fc2_gradient)
-        self.fc3_b -= self.learning_rate * np.sum(fc3_gradient)
-        self.output_b -= self.learning_rate * np.sum(output_gradient) 
+
+        self.cn1_b -= self.learning_rate * np.sum(cn1_gradient, axis=(2, 3)).flatten()
+        self.cn2_b -= self.learning_rate * np.sum(cn2_gradient, axis=(2, 3)).flatten()
+        self.cn3_b -= self.learning_rate * np.sum(cn3_gradient, axis=(2, 3)).flatten()
+        self.cn4_b -= self.learning_rate * np.sum(cn4_gradient, axis=(2, 3)).flatten()
+        self.fc1_b -= self.learning_rate * np.sum(fc1_gradient, axis=(0, 1))
+        self.fc2_b -= self.learning_rate * np.sum(fc2_gradient, axis=(0, 1))
+        self.fc3_b -= self.learning_rate * np.sum(fc3_gradient, axis=(0, 1))
+        self.output_b -= self.learning_rate * np.sum(output_gradient, axis=(0, 1))
