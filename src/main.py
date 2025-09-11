@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import wandb
 import os
+import argparse
 
 
 def collate_fn(batch):
@@ -14,10 +15,11 @@ def collate_fn(batch):
 
     bboxes = []
     for t in targets:
-        if "bbox" in t and len(t["bbox"] > 0):
-            bbox = torch.as_tensor(t["bbox"][0], dtype=torch.float32)
+        if t is None or "bbox" not in t or len(t["bbox"]) == 0:
+            bbox = torch.tensor([0.0, 0.0, 0.0, 0.0], dtype=torch.float32)
         else:
-            bbox = torch.zeros(4, dtype=torch.float32)
+            bbox = torch.as_tensor(t["bbox"][0], dtype=torch.float32)
+            
         bboxes.append(bbox)
         
     bboxes = torch.stack(bboxes, 0)
@@ -47,14 +49,16 @@ def iou(box1, box2):
     union = b1_area + b2_area - inter_area
     return inter_area / (union + 1e-6)
 
-
+parser = argparse.ArgumentParser()
+parser.add_argument("--batch_size", type=int, default=1)
+args = parser.parse_args()
 if __name__ == "__main__":
     transform = transforms.Compose(
         [transforms.Resize((224, 224)),
          transforms.ToTensor(),
          transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     
-    batch_size = 64
+    batch_size = args.batch_size
 
     trainset = datasets.WIDERFace(root='./data', transform=transform, 
                                   split="train", download=True)
@@ -62,11 +66,16 @@ if __name__ == "__main__":
                                               shuffle=True, num_workers=4,
                                               collate_fn=collate_fn)
     
+    print(f"Loading trainset and traindata with batch size {args.batch_size}")
+    
     testset = datasets.WIDERFace(root='./data', transform=transform, 
                                  download=True, split="test")
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                              shuffle=False, num_workers=4,
                                              collate_fn=collate_fn)
+    
+    print(f"Loading testset and testdata with batch size {args.batch_size}")
+
     
     device = torch.device("mps" if torch.backends.mps.is_available()
                           else "cuda" if torch.cuda.is_available()
@@ -74,6 +83,8 @@ if __name__ == "__main__":
     
     
     net = iseeu.ISeeU(iseeu.ISeeUModule, [3, 4, 6, 3]).to(device)
+
+    print("Initialized ISeeU model")
 
     if os.path.exists("weights/ISeeU.pth"):
         net.load_state_dict(torch.load("weights/ISeeU.pth"))
@@ -89,6 +100,7 @@ if __name__ == "__main__":
         running_loss = 0.0
 
         for i, (images, bboxes) in enumerate(trainloader, 0):
+
             images, bboxes = images.to(device), bboxes.to(device)
 
             optimizer.zero_grad()
@@ -105,40 +117,31 @@ if __name__ == "__main__":
 
             running_loss += loss.item()
 
-            if i % 2000 == 1999:
-                print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, running_loss / 2000))
-                wandb.log({"epoch_avg_loss": running_loss / 2000})
+            if i % 50 == 49:
+                print('[Epoch: %d, Batch: %5d] Loss: %.3f' % (epoch + 1, i + 1, running_loss / 50))
+                wandb.log({"epoch_avg_loss": running_loss / 50})
                 running_loss = 0.0
-        
-            wandb.log({"loss": running_loss})
 
-        net.eval()
-        iou_scores = []
-        with torch.no_grad():
-            for i, (images, bboxes) in enumerate(testloader, 0):
-                images, bboxes = images.to(device), bboxes.to(device)
-                pred_bbox, pred_conf = net(images)
-                batch_iou = iou(pred_bbox, bboxes)
-                iou_scores.extend(batch_iou.cpu().numpy())
-        mean_iou = sum(iou_scores) / len(iou_scores)
-        wandb.log({"test_iou": mean_iou})
-
-        print(f"Epoch {epoch + 1}, Loss {running_loss / len(trainloader):.4f}, IoU: {mean_iou:.4f}")
+        print(f"Epoch {epoch + 1}, Loss {running_loss / len(trainloader):.4f}")
     
     print('Finished Training')
     torch.save(net.state_dict(), "weights/ISeeU.pth")
     wandb.save("ISeeU.pth")
 
 
-    correct = 0
-    total = 0
+    net.eval()
+    iou_scores = []
+
     with torch.no_grad():
-        for data in testloader:
-            images, labels = data
+        for images, bboxes in testloader:
+            if images is None:
+                continue
 
-        outputs = net(images)
-        _, predicted = torch.max(outputs.data, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
+            images, bboxes = images.to(device), bboxes.to(device)
+            pred_bbox, pred_conf = net(images)
 
-    wandb.log({"accuracy": correct/total})
+            batch_iou = iou(pred_bbox, bboxes)
+            iou_scores.extend(batch_iou.cpu().numpy())
+
+    mean_iou = sum(iou_scores) / len(iou_scores)
+    wandb.log({"test_mean_iou": mean_iou})
