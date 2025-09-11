@@ -115,7 +115,7 @@ if __name__ == "__main__":
         net.eval()
         iou_scores = []
         with torch.no_grad():
-            for images, bboxes in testloader:
+            for i, (images, bboxes) in enumerate(testloader, 0):
                 images, bboxes = images.to(device), bboxes.to(device)
                 pred_bbox, pred_conf = net(images)
                 batch_iou = iou(pred_bbox, bboxes)
