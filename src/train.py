@@ -51,6 +51,8 @@ def iou(box1, box2):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", type=int, default=1)
+parser.add_argument("--save_to_local", type=bool, default=True)
+parser.add_argument("--save_to_wandb", type=bool, default=True)
 args = parser.parse_args()
 if __name__ == "__main__":
     transform = transforms.Compose(
@@ -85,9 +87,6 @@ if __name__ == "__main__":
     net = iseeu.ISeeU(iseeu.ISeeUModule, [3, 4, 6, 3]).to(device)
 
     print("Initialized ISeeU model")
-
-    if os.path.exists("weights/ISeeU.pth"):
-        net.load_state_dict(torch.load("weights/ISeeU.pth"))
 
     optimizer = optim.Adam(net.parameters(), lr=0.001)
     criterion_bbox = nn.SmoothL1Loss()
@@ -125,8 +124,14 @@ if __name__ == "__main__":
         print(f"Epoch {epoch + 1}, Loss {running_loss / len(trainloader):.4f}")
     
     print('Finished Training')
-    torch.save(net.state_dict(), "weights/ISeeU.pth")
-    wandb.save("ISeeU.pth")
+
+    if args.save_to_local:
+        if not os.path.exists("weights/"):
+            os.mkdir("weights/")
+        torch.save(net.state_dict(), "weights/ISeeU.pth")
+
+    if args.save_to_wandb:
+        wandb.save("ISeeU.pth")
 
 
     net.eval()
