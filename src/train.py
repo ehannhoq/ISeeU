@@ -64,16 +64,16 @@ def iou(box1, box2):
 
     x2 = box2[0]
     y2 = box2[1]
-    w2 = box2[3]
+    w2 = box2[2]
     h2 = box2[3]
 
     int_top_left_x = torch.max(x1, x2)
     int_top_left_y = torch.max(y1, y2)
     int_bottom_right_x = torch.min(x1 + w1, x2 + w2)
-    int_bottom_right_y = torch.min(y1 + h1, y2, h2)
+    int_bottom_right_y = torch.min(y1 + h1, y2 + h2)
 
-    int_w = int_bottom_right_x - int_top_left_x
-    int_h = int_bottom_right_y - int_top_left_y
+    int_w = torch.clamp(int_bottom_right_x - int_top_left_x, min=0)
+    int_h = torch.clamp(int_bottom_right_y - int_top_left_y, min=0)
     
     int_area = int_w * int_h
 
