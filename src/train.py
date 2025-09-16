@@ -11,7 +11,7 @@ import argparse
 
 class WIDERFaceWrapped(datasets.WIDERFace):
     def __init__(self, root, split='train', transform=None, download=False, *kwargs):
-        super().__init__(root=root, split=split, transform=None, download=download *kwargs)
+        super().__init__(root=root, split=split, transform=None, download=download, *kwargs)
 
         self.user_transform = transform
 
