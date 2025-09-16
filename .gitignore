@@ -1,3 +1,5 @@
 data/
 wandb/
 src/__pycache__
+.DS_STORE
+weights/
