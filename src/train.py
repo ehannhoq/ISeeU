@@ -9,6 +9,36 @@ import os
 import argparse
 
 
+class WIDERFaceWrapped(datasets.WIDERFace):
+    def __init__(self, root, split='train', transform=None, download=False, *kwargs):
+        super().__init__(root=root, split=split, transform=None, download=download *kwargs)
+
+        self.user_transform = transform
+
+        
+    def __getitem__(self, index):
+        img, target = super().__getitem__(index=index)
+        orig_w, orig_h = img.size
+
+        if target is not None and "bbox" in target and len(target["bbox"]) > 0:
+            scaled_box = []
+            for bbox in target["bbox"]:
+                x, y, w, h = bbox
+                x = x * 224 / orig_w
+                y = y * 224 / orig_h
+                w = w * 224 / orig_w
+                h = h * 224 / orig_h
+                scaled_box.append([x, y, w, h])
+            target["bbox"] = scaled_box
+        else:
+            target = {"bbox": []}
+        
+        if self.user_transform is not None:
+            img = self.user_transform(img)
+
+        return img, target
+
+
 def collate_fn(batch):
     images, targets = zip(*batch)
     images = torch.stack(images, 0)
@@ -18,7 +48,7 @@ def collate_fn(batch):
         if t is None or "bbox" not in t or len(t["bbox"]) == 0:
             bbox = torch.tensor([0.0, 0.0, 0.0, 0.0], dtype=torch.float32)
         else:
-            bbox = torch.as_tensor(t["bbox"][0], dtype=torch.float32)
+            bbox = torch.tensor(t["bbox"][0], dtype=torch.float32)
             
         bboxes.append(bbox)
         
@@ -27,32 +57,39 @@ def collate_fn(batch):
 
 
 def iou(box1, box2):
-    b1_x1 = box1[:, 0] - box1[:, 2] / 2
-    b1_y1 = box1[:, 1] - box1[:, 3] / 2
-    b1_x2 = box1[:, 0] + box1[:, 2] / 2
-    b1_y2 = box1[:, 1] + box1[:, 3] / 2
+    x1 = box1[0]
+    y1 = box1[1]
+    w1 = box1[2]
+    h1 = box1[3]
 
-    b2_x1 = box2[:, 0] - box2[:, 2] / 2
-    b2_y1 = box2[:, 1] - box2[:, 3] / 2
-    b2_x2 = box2[:, 0] + box2[:, 2] / 2
-    b2_y2 = box2[:, 1] + box2[:, 3] / 2
+    x2 = box2[0]
+    y2 = box2[1]
+    w2 = box2[3]
+    h2 = box2[3]
 
-    inter_x1 = torch.max(b1_x1, b2_x1)
-    inter_y1 = torch.max(b1_y1, b2_y1)
-    inter_x2 = torch.min(b1_x2, b2_x2)
-    inter_y2 = torch.min(b1_y2, b2_y2)
+    int_top_left_x = torch.max(x1, x2)
+    int_top_left_y = torch.max(y1, y2)
+    int_bottom_right_x = torch.min(x1 + w1, x2 + w2)
+    int_bottom_right_y = torch.min(y1 + h1, y2, h2)
 
-    inter_area = torch.clamp(inter_x2 - inter_x1, min=0) * torch.clamp(inter_y2 - inter_y1, min=0)
-    b1_area = (b1_x2 - b1_x1) * (b1_y2 - b1_y1)
-    b2_area = (b2_x2 - b2_x1) * (b2_y2 - b2_y1)
+    int_w = int_bottom_right_x - int_top_left_x
+    int_h = int_bottom_right_y - int_top_left_y
+    
+    int_area = int_w * int_h
 
-    union = b1_area + b2_area - inter_area
-    return inter_area / (union + 1e-6)
+    box1_area = w1 * h1
+    box2_area = w2 * h2
+
+    union_area = box1_area + box2_area - int_area
+    iou = int_area / (union_area + 1e-6)
+    return iou
+    
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", type=int, default=1)
+parser.add_argument("--epochs", type=int, default=10)
 parser.add_argument("--save_to_local", type=bool, default=True)
-parser.add_argument("--save_to_wandb", type=bool, default=True)
 args = parser.parse_args()
 if __name__ == "__main__":
     transform = transforms.Compose(
@@ -62,22 +99,17 @@ if __name__ == "__main__":
     
     batch_size = args.batch_size
 
-    trainset = datasets.WIDERFace(root='./data', transform=transform, 
-                                  split="train", download=True)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                              shuffle=True, num_workers=4,
-                                              collate_fn=collate_fn)
     
-    print(f"Loading trainset and traindata with batch size {args.batch_size}")
+    trainset = WIDERFaceWrapped(root="./data", split="train", transform=transform, download=True)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
     
-    testset = datasets.WIDERFace(root='./data', transform=transform, 
-                                 download=True, split="test")
-    testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+
+    valset = WIDERFaceWrapped(root="./data", split="val", transform=transform, download=False)
+    valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
                                              shuffle=False, num_workers=4,
                                              collate_fn=collate_fn)
     
-    print(f"Loading testset and testdata with batch size {args.batch_size}")
-
+    print(f"Loading valset and valdata with batch size {args.batch_size}")
     
     device = torch.device("mps" if torch.backends.mps.is_available()
                           else "cuda" if torch.cuda.is_available()
@@ -94,7 +126,7 @@ if __name__ == "__main__":
 
     wandb.init(project="iseeu-training")
 
-    for epoch in range(10):
+    for epoch in range(args.epochs):
         net.train()
         running_loss = 0.0
 
@@ -109,7 +141,7 @@ if __name__ == "__main__":
 
             loss_bbox = criterion_bbox(pred_bbox, bboxes)
             loss_conf = criterion_conf(pred_conf, gt_conf)
-            loss = loss_bbox + loss_conf
+            loss = loss_bbox * 6.0 + loss_conf * 1.0
 
             loss.backward()
             optimizer.step()
@@ -130,15 +162,11 @@ if __name__ == "__main__":
             os.mkdir("weights/")
         torch.save(net.state_dict(), "weights/ISeeU.pth")
 
-    if args.save_to_wandb:
-        wandb.save("ISeeU.pth")
-
-
     net.eval()
     iou_scores = []
 
     with torch.no_grad():
-        for images, bboxes in testloader:
+        for images, bboxes in valloader:
             if images is None:
                 continue
 
