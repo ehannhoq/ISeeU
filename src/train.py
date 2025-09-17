@@ -28,6 +28,13 @@ class WIDERFaceWrapped(datasets.WIDERFace):
                 y = y * 224 / orig_h
                 w = w * 224 / orig_w
                 h = h * 224 / orig_h
+
+                x /= 244
+                y /= 244
+                w /= 244
+                h /= 244
+
+
                 scaled_box.append([x, y, w, h])
             target["bbox"] = scaled_box
         else:
@@ -83,7 +90,6 @@ def iou(box1, box2):
     union_area = box1_area + box2_area - int_area
     iou = int_area / (union_area + 1e-6)
     return iou
-    
 
 
 parser = argparse.ArgumentParser()
@@ -100,7 +106,7 @@ if __name__ == "__main__":
     batch_size = args.batch_size
 
     
-    trainset = WIDERFaceWrapped(root="./data", split="train", transform=transform, download=True)
+    trainset = WIDERFaceWrapped(root="./data", split="train", transform=transform, download=False)
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, collate_fn=collate_fn)
     
 
@@ -141,7 +147,7 @@ if __name__ == "__main__":
 
             loss_bbox = criterion_bbox(pred_bbox, bboxes)
             loss_conf = criterion_conf(pred_conf, gt_conf)
-            loss = loss_bbox * 6.0 + loss_conf * 1.0
+            loss = loss_bbox * 7.0 + loss_conf * 1.0
 
             loss.backward()
             optimizer.step()
