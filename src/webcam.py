@@ -46,25 +46,25 @@ if __name__ == "__main__":
         img = transform(frame).unsqueeze(0).to(device)
 
         bbox, conf = net(img)
-        bbox = bbox[0].detach().cpu().numpy().astype(int)
+        bbox = bbox[0].detach().cpu().numpy()
 
         x, y, w, h = bbox
+        w *= orig_w
+        h *= orig_h
 
-        scale_x = orig_w / 224
-        scale_y = orig_h / 224
-        x1 = int(x * scale_x)
-        y1 = int(y * scale_y)
-        x2 = int((x + w) * scale_x)
-        y2 = int((y + h) * scale_y)
+        x1 = x * orig_w
+        y1 = y * orig_h
+        x2 = x1 + w
+        y2 = y1 + h
 
         frame = cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 5)
 
         cv2.imshow('Webcam', frame)
-        print(f"Confidence: {conf[0]}\r")
+        print(f"Bounding Box: {[x1, y1, x2, y2]}, Confidence: {conf[0][0]}", end="\r")
         
         time.sleep(0.1)
 
-
+    print()
 
 
 
