@@ -23,7 +23,7 @@ class WIDERFaceWrapped(datasets.WIDERFace):
         if target is not None and "bbox" in target and len(target["bbox"]) > 0:
             scaled_box = []
             for bbox in target["bbox"]:
-                x, y, w, h = bbox
+                x, y, w, h = map(float, bbox)
                 x /= orig_w
                 y /= orig_h
                 w /= orig_w
