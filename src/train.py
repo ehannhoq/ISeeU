@@ -120,7 +120,7 @@ if __name__ == "__main__":
     print("Initialized ISeeU model")
 
     optimizer = optim.Adam(net.parameters(), lr=0.001)
-    scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=10)
+    scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=10, gamma=0.95)
 
     criterion_bbox = nn.SmoothL1Loss()
     criterion_conf = nn.BCELoss()
@@ -150,6 +150,8 @@ if __name__ == "__main__":
             loss = loss_bbox * 15.0 + loss_conf * 1.0
 
             loss.backward()
+
+            optimizer.step()
             scheduler.step()
 
             running_loss_bbox += loss_bbox.item()
