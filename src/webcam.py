@@ -48,6 +48,8 @@ if __name__ == "__main__":
         bbox, conf = net(img)
         bbox = bbox[0].detach().cpu().numpy()
 
+        print(bbox)
+
         x, y, w, h = bbox
         w *= orig_w
         h *= orig_h
@@ -56,6 +58,8 @@ if __name__ == "__main__":
         y1 = y * orig_h
         x2 = x1 + w
         y2 = y1 + h
+
+        x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
 
         frame = cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 5)
 
