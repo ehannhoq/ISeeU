@@ -24,15 +24,10 @@ class WIDERFaceWrapped(datasets.WIDERFace):
             scaled_box = []
             for bbox in target["bbox"]:
                 x, y, w, h = bbox
-                x = x * 224 / orig_w
-                y = y * 224 / orig_h
-                w = w * 224 / orig_w
-                h = h * 224 / orig_h
-
-                x /= 244
-                y /= 244
-                w /= 244
-                h /= 244
+                x /= orig_w
+                y /= orig_h
+                w /= orig_w
+                h /= orig_h
 
 
                 scaled_box.append([x, y, w, h])
@@ -64,15 +59,16 @@ def collate_fn(batch):
 
 
 def iou(box1, box2):
-    x1 = box1[0]
-    y1 = box1[1]
-    w1 = box1[2]
-    h1 = box1[3]
+    
+    x1 = box1[:, 0]
+    y1 = box1[:, 1]
+    w1 = box1[:, 2]
+    h1 = box1[:, 3]
 
-    x2 = box2[0]
-    y2 = box2[1]
-    w2 = box2[2]
-    h2 = box2[3]
+    x2 = box2[:, 0]
+    y2 = box2[:, 1]
+    w2 = box2[:, 2]
+    h2 = box2[:, 3]
 
     int_top_left_x = torch.max(x1, x2)
     int_top_left_y = torch.max(y1, y2)
@@ -81,15 +77,13 @@ def iou(box1, box2):
 
     int_w = torch.clamp(int_bottom_right_x - int_top_left_x, min=0)
     int_h = torch.clamp(int_bottom_right_y - int_top_left_y, min=0)
-    
     int_area = int_w * int_h
 
     box1_area = w1 * h1
     box2_area = w2 * h2
 
     union_area = box1_area + box2_area - int_area
-    iou = int_area / (union_area + 1e-6)
-    return iou
+    return int_area / (union_area + 1e-6)
 
 
 parser = argparse.ArgumentParser()
