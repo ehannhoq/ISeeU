@@ -29,7 +29,7 @@ class WIDERFaceWrapped(datasets.WIDERFace):
                 w /= orig_w
                 h /= orig_h
 
-                if w < 0.075 or h < 0.075:
+                if w < 0.1 or h < 0.1:
                     continue
                     
                 scaled_box.append([x, y, w, h])
@@ -139,34 +139,33 @@ if __name__ == "__main__":
         net.train()
         running_loss_bbox = 0.0
         running_loss_conf = 0.0
+        num_batches = 0
 
         for i, (images, bboxes) in enumerate(trainloader, 0):
-
             images, bboxes = images.to(device), bboxes.to(device)
-
             optimizer.zero_grad()
             pred_bbox, pred_conf = net(images)
-
             gt_conf = (bboxes.sum(dim=1) > 0).float().unsqueeze(1)
-
             loss_bbox = criterion_bbox(pred_bbox, bboxes)
             loss_conf = criterion_conf(pred_conf, gt_conf)
             loss = loss_bbox * 15.0 + loss_conf * 1.0
-
             loss.backward()
-
             optimizer.step()
             scheduler.step()
-
             running_loss_bbox += loss_bbox.item()
             running_loss_conf += loss_conf.item()
+            num_batches += 1
 
-            if i % 50 == 49:
-                print('[Epoch: %d, Batch: %5d] Bounding Box Loss: %.3f Confidence Loss: %0.3f' % (epoch + 1, i + 1, running_loss_bbox / 50, running_loss_conf / 50))
-                wandb.log({"avg_bbox_loss": running_loss_bbox / 50})
-                wandb.log({"avg_conf_loss": running_loss_conf / 50})
-                running_loss_bbox = 0.0
-                running_loss_conf = 0.0
+        avg_loss_bbox = running_loss_bbox / num_batches if num_batches > 0 else 0.0
+        avg_loss_conf = running_loss_conf / num_batches if num_batches > 0 else 0.0
+        avg_total_loss = avg_loss_bbox * 15.0 + avg_loss_conf * 1.0
+        print(f'[Epoch: {epoch + 1}] Avg Bounding Box Loss: {avg_loss_bbox:.3f} Avg Confidence Loss: {avg_loss_conf:.3f} Avg Total Loss: {avg_total_loss:.3f}')
+        wandb.log({
+            "epoch": epoch + 1,
+            "avg_bbox_loss": avg_loss_bbox,
+            "avg_conf_loss": avg_loss_conf,
+            "avg_total_loss": avg_total_loss
+        })
 
         net.eval()
         val_iou_scores = []
@@ -174,13 +173,10 @@ if __name__ == "__main__":
             for images, bboxes in valloader:
                 images, bboxes = images.to(device), bboxes.to(device)
                 pred_bboxes, pred_conf = net(images)
-
                 batch_iou = iou(pred_bboxes, bboxes)
-
                 val_iou_scores.extend(batch_iou.cpu().numpy())
-        
         mean_val_iou = sum(val_iou_scores) / len(val_iou_scores)
-        wandb.log({"mean_val_iou"}, mean_val_iou)
+        wandb.log({"mean_val_iou": mean_val_iou})
         print(f"Epoch {epoch + 1} validation mean IoU: {mean_val_iou:.4f}")
 
         if mean_val_iou > best_val_iou:
