@@ -29,7 +29,6 @@ class WIDERFaceWrapped(datasets.WIDERFace):
                 w /= orig_w
                 h /= orig_h
 
-
                 scaled_box.append([x, y, w, h])
             target["bbox"] = scaled_box
         else:
@@ -88,7 +87,7 @@ def iou(box1, box2):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", type=int, default=1)
-parser.add_argument("--epochs", type=int, default=10)
+parser.add_argument("--epochs", type=int, default=100)
 parser.add_argument("--save_to_local", type=bool, default=True)
 args = parser.parse_args()
 if __name__ == "__main__":
@@ -126,9 +125,14 @@ if __name__ == "__main__":
 
     wandb.init(project="iseeu-training")
 
+    best_val_iou = 0.0
+    patience = 5
+    epochs_no_improve = 0
+
     for epoch in range(args.epochs):
         net.train()
-        running_loss = 0.0
+        running_loss_bbox = 0.0
+        running_loss_conf = 0.0
 
         for i, (images, bboxes) in enumerate(trainloader, 0):
 
@@ -141,40 +145,52 @@ if __name__ == "__main__":
 
             loss_bbox = criterion_bbox(pred_bbox, bboxes)
             loss_conf = criterion_conf(pred_conf, gt_conf)
-            loss = loss_bbox * 7.0 + loss_conf * 1.0
+            loss = loss_bbox * 15.0 + loss_conf * 1.0
 
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
+            running_loss_bbox += loss_bbox.item()
+            running_loss_conf += loss_conf.item()
 
             if i % 50 == 49:
-                print('[Epoch: %d, Batch: %5d] Loss: %.3f' % (epoch + 1, i + 1, running_loss / 50))
-                wandb.log({"epoch_avg_loss": running_loss / 50})
-                running_loss = 0.0
+                print('[Epoch: %d, Batch: %5d] Bounding Box Loss: %.3f Confidence Loss: %0.3f' % (epoch + 1, i + 1, running_loss_bbox / 50, running_loss_conf / 50))
+                wandb.log({"avg_bbox_loss": running_loss_bbox / 50})
+                wandb.log({"avg_conf_loss": running_loss_conf / 50})
+                running_loss_bbox = 0.0
+                running_loss_conf = 0.0
 
-        print(f"Epoch {epoch + 1}, Loss {running_loss / len(trainloader):.4f}")
+        net.eval()
+        val_iou_scores = []
+        with torch.no_grad():
+            for images, bboxes in valloader:
+                images, bboxes = images.to(device), bboxes.to(device)
+                pred_bboxes, pred_conf = net(images)
+
+                batch_iou = iou(pred_bboxes, bboxes)
+
+                val_iou_scores.extend(batch_iou.cpu().numpy())
+        
+        mean_val_iou = sum(val_iou_scores) / len(val_iou_scores)
+        wandb.log({"mean_val_iou"}, mean_val_iou)
+        print(f"Epoch {epoch + 1} validation mean IoU: {mean_val_iou:.4f}")
+
+        if mean_val_iou > best_val_iou:
+            best_val_iou = mean_val_iou
+            epochs_no_improve = 0
+        else:
+            epochs_no_improve += 1
+
+            if epochs_no_improve > patience:
+                print(f"Early stopping at Epoch {epoch + 1}")
+
+                if args.save_to_local:
+                    if not os.path.exists("weights/"):
+                        os.mkdir("weights/")
+                    torch.save(net.state_dict(), "weights/ISeeU.pth")
+
+                break
+    
+        net.train()
     
     print('Finished Training')
-
-    if args.save_to_local:
-        if not os.path.exists("weights/"):
-            os.mkdir("weights/")
-        torch.save(net.state_dict(), "weights/ISeeU.pth")
-
-    net.eval()
-    iou_scores = []
-
-    with torch.no_grad():
-        for images, bboxes in valloader:
-            if images is None:
-                continue
-
-            images, bboxes = images.to(device), bboxes.to(device)
-            pred_bbox, pred_conf = net(images)
-
-            batch_iou = iou(pred_bbox, bboxes)
-            iou_scores.extend(batch_iou.cpu().numpy())
-
-    mean_iou = sum(iou_scores) / len(iou_scores)
-    wandb.log({"test_mean_iou": mean_iou})
