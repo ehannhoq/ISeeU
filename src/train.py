@@ -29,7 +29,11 @@ class WIDERFaceWrapped(datasets.WIDERFace):
                 w /= orig_w
                 h /= orig_h
 
+                if w < 0.075 or h < 0.075:
+                    continue
+                    
                 scaled_box.append([x, y, w, h])
+
             target["bbox"] = scaled_box
         else:
             target = {"bbox": []}
